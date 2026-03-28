@@ -982,7 +982,7 @@ def on_ui_tabs():
                             btn_create_mode     = gr.Button("➕ Create New Card", visible=True, elem_classes="wcc_status_btn")
                             
                 wcards_selector = gr.Textbox(visible= False, interactive=False)
-                coll_flt_res = gr.Dataset(visible= False,  label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples= [[i] for i in range(0, ITEMS_CAP)], samples_per_page=ITEMS_CAP+1 , type="index")
+                coll_flt_res = gr.Dataset(visible= False,  label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"], sanitize=False)], samples= [[i] for i in range(0, ITEMS_CAP)], samples_per_page=ITEMS_CAP+1 , type="index")
                 with gr.Row( elem_id= "wcc_pag_div") :
                     btn_pg_prev = gr.Button("\u25C0", visible= False)
                     tx_pg_jump = gr.Textbox(label="page", visible= False)

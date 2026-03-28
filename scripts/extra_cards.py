@@ -1,4 +1,4 @@
-﻿from modules.ui_extra_networks import ExtraNetworksPage, quote_js, register_page
+from modules.ui_extra_networks import ExtraNetworksPage, quote_js, register_page
 from modules import shared, script_callbacks
 import modules.scripts as scripts 
 
@@ -344,7 +344,6 @@ class Script(scripts.Script):
 
 def on_app_started(_, app:FastAPI):
     app.add_api_route("/wcc_cards/img", fetch_img, methods=["GET"])
-    app.add_api_route("/wcc_cards/base_url", get_base_url, methods=["GET"])
 
 
 

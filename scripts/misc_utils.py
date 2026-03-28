@@ -262,6 +262,7 @@ def fetch_img(filename: str = ""):
         raise HTTPException(status_code=404, detail="File not found")
     else:
         try:
+            filename = os.path.realpath(filename)
             fileDir = os.path.dirname(filename)
             content_type, _ = mimetypes.guess_type(filename)
             common      = os.path.commonpath([CARDS_FOLDER, fileDir])
@@ -278,8 +279,7 @@ def fetch_img(filename: str = ""):
 
 def link_img(filename, ver=1, absolute =False):
     quoted_filename = urllib.parse.quote(filename.replace('\\', '/'))
-    root_url = load_base_url() if absolute else "./" 
-    return f"{root_url}wcc_cards/img?filename={quoted_filename}&v={ver}"
+    return f"/wcc_cards/img?filename={quoted_filename}&v={ver}"
 
 def copy_with_directories(src, dst):
     try:
