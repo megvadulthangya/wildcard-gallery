@@ -1,7 +1,4 @@
- 
-
-# Wildcard Gallery V2
-
+# Wildcard Gallery V2.1.0
 
 ## What is this
 
@@ -15,12 +12,10 @@ This Automatic1111 extension primary adds a new extra networks gallery for wildc
 
 ## requirements
 - This extension extends on the wildcard functionality so it goes without saying that you already have the **[sd-dynamic-prompts](https://github.com/adieyal/sd-dynamic-prompts)** extension in your WebUi ecosystem if not then you'll need to install the .
-- This extension was made with Gradio 3.x in mind things may break with higher versions
+- This extension has been updated for **Gradio 4.40+** compatibility, making it fully functional with modern WebUIs like **Forge**.
 
 ## Settings
-- to limit indexation to specific wildcard branches you can add the parent activation path wildcard to the Whitelist (default behavior)
- - **important!!** you wont see any wildcard in the gallery unless you add its **file name** to whitelist in the **webui settings** and restart it
-- to exclude wildcards from indexation you can add their activation path to the Blacklist
+- **Note on Whitelist/Blacklist:** You may still see Whitelist and Blacklist options in the UI settings, but **these are now obsolete and no longer required**. The extension has been updated to automatically scan, index, and load *all* wildcards found in your directory into the gallery recursively. You do not need to manually add files to a whitelist anymore.
 - you can toggle the Downscale preview images to resize and compress generated previews to take far less size on the disk
 <img src="screenshots/ml0.jpg"/>
 
@@ -42,19 +37,15 @@ The **Wildcard Filter Tab** is the most notable addition in Version 2 of the *Wi
 
 The layout is intentionally simple and includes:
 
-- **Filtering Options**  
-  Handles the creation and execution of filtering queries.
+- **Filtering Options** Handles the creation and execution of filtering queries.
   <img src="screenshots/ml1.jpg"/>
 
-- **Cards Viewer**  
-
-  Displays filter results as cards, paginated (typically 25 per page).  
+- **Cards Viewer** Displays filter results as cards, paginated (typically 25 per page).  
   - Allows card selection for future operations  
   - Enables card creation  
   - Includes a **Viewer Options** subsection for tag visibility, preview cycling, and card grouping
 
-- **Operations Sections**  
-  Contains actions for selected cards or the entire wildcard dictionary.
+- **Operations Sections** Contains actions for selected cards or the entire wildcard dictionary.
 
 ---
 
@@ -117,19 +108,16 @@ This is where you'll interact with filtered results in the form of cards.
 
 Additional utilities can be accessed from the collapsed section above the card viewer:
 
-- **Card Stacking Level**  
-  Groups cards based on their parent rank.  
+- **Card Stacking Level** Groups cards based on their parent rank.  
   - E.g., setting stacking to 3 will group `parentA/parentB/parentC/Card1` and `.../Card2` under a shared `parentC/*` stack.
   - Selecting a stack selects all cards within it.
   - Changing stacking level does *not* reset card selections.
   <img src="screenshots/ml4.jpg"/> 
   <img src="screenshots/ml5.jpg"/> 
 
-- **Tag Masking**  
-  Allows hiding or decluttering tags on cards based on their tag group settings.
+- **Tag Masking** Allows hiding or decluttering tags on cards based on their tag group settings.
 
-- **Selected Preview Channel**  
-  Lets you cycle through different preview images per card based on the chosen channel.
+- **Selected Preview Channel** Lets you cycle through different preview images per card based on the chosen channel.
 
 ---
 
@@ -191,8 +179,7 @@ This is a **txt2img** script used in conjunction with the **Wildcard Filter Tab*
   - Make sure to switch to the channel where you want the resulting image(s) to be saved.  
   - Enabling **Override Existing Previews** will force regeneration and replacement of previews for all selected wildcards, even if they already have a preview in the chosen channel.
 
-  - **Simplified Usage Steps:** 
-    1. Select the desired cards in the **Wildcard Filter Tab**.
+  - **Simplified Usage Steps:** 1. Select the desired cards in the **Wildcard Filter Tab**.
     <img src="screenshots/st1.jpg"/>
     
     2. Add the base positive and negative prompts for image generation.
@@ -209,5 +196,3 @@ This is a **txt2img** script used in conjunction with the **Wildcard Filter Tab*
        - (Sometimes you may need to deselect and reselect a card for the info to refresh.)
     
     <img src="screenshots/st4.jpg"/>
-
-
