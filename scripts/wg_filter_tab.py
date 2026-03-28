@@ -991,7 +991,7 @@ def on_ui_tabs():
             
         with gr.Accordion("Import Wildcards Pack", open=False):
             with gr.Row():
-                file_browse_wp = gr.File(file_count="single", type='file', file_types=[".zip"], label="Wildcard pack", show_label=True) 
+                file_browse_wp = gr.File(file_count="single", type='filepath', file_types=[".zip"], label="Wildcard pack", show_label=True) 
             with gr.Row():
                 html_pack_info = gr.HTML(visible=False)
             #with gr.Row():

@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, asdict
 import mimetypes
 
 def fetch_wilcards_dir():
-    setting_dir = getattr(shared.opts, "wcc_wildcards_directory","").strip()
+    setting_dir = (getattr(shared.opts, "wcc_wildcards_directory", "") or "").strip()
     found_path = os.path.join(extensions_dir,"sd-dynamic-prompts","wildcards")
     if os.path.isdir(setting_dir):
         return setting_dir
