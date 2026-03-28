@@ -154,7 +154,7 @@ def update_gallery_view(new_sel_index=None, update_stacks=False):
 
 
     samples_list = []
-    if new_sel_index is not None and not multi_selection_mode:
+    if new_sel_index and not multi_selection_mode:
         selected_stack_paths = []
         selected_entries = []
  
@@ -226,7 +226,7 @@ def update_gallery_view(new_sel_index=None, update_stacks=False):
                                                       )])
     last_edit = selected_entries[-1] if selected_entries else last_edit
     
-    if new_sel_index is not None and current_stack_level>0 and not multi_selection_mode:
+    if new_sel_index and current_stack_level>0 and not multi_selection_mode:
         current_stack_level = 0
         filtered_stacks =   {}
         filtered_pile= selected_entries.copy()
@@ -395,9 +395,7 @@ def act_select_entry(index):
     global card_edit_mode
     card_edit_mode = False
 
-    # Gradio 4 passes index as int; Gradio 3 passed as list
-    if isinstance(index, list):
-        index = index[0] if index else None
+    index = index[0] if isinstance(index,list) else index #in case of gradio 3
 
     old_count = len(selected_entries)
     samples_list =  update_gallery_view( new_sel_index= index)
@@ -406,14 +404,17 @@ def act_select_entry(index):
 
     html_view = update_stack_view(selected_entries, invert= old_count>len(selected_entries)) if selected_entries else ""
 
+    # Set the selected wildcard string into the hidden textbox for JS insertion
+    selected_wildcard_str = ""
+    if selected_entries:
+        selected_wildcard_str = f"{WILD_STR}{selected_entries[-1].path}{WILD_STR}"
     return ( 
              gr.update( visible= bool(samples_list), samples= samples_list),
              gr.update( value= current_stack_level),
-
              gr.update( visible= True),
              *update_card_mode(html_view, is_creation= False , is_selection= bool(selected_entries),  is_edit=False), #9 updates
-
-             gr.update( value = aux_details, visible= (selected_entries and (len(selected_entries)<2) ))
+             gr.update( value = aux_details, visible= (selected_entries and (len(selected_entries)<2) )),
+             gr.update( value = selected_wildcard_str )   # update hidden textbox
             )
 
 def act_paginate(page_str):
@@ -984,6 +985,7 @@ def on_ui_tabs():
                             btn_create_mode     = gr.Button("➕ Create New Card", visible=True, elem_classes="wcc_status_btn")
                             
                 wcards_selector = gr.Textbox(visible= False, interactive=False)
+                # Updated Dataset for Gradio 4.40: removed sanitize=False
                 coll_flt_res = gr.Dataset(visible= False,  label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples= [[i] for i in range(0, ITEMS_CAP)], samples_per_page=ITEMS_CAP+1 , type="index")
                 with gr.Row( elem_id= "wcc_pag_div") :
                     btn_pg_prev = gr.Button("\u25C0", visible= False)
@@ -1075,6 +1077,24 @@ def on_ui_tabs():
             }
         '''
         
+        # New JS function to insert selected wildcard into main prompt
+        js_insert_prompt = '''
+            (wildcard_str) => {
+                var prompt_textarea = gradioApp().querySelector('#txt2img_prompt');
+                if (prompt_textarea) {
+                    var current_prompt = prompt_textarea.value;
+                    var new_prompt = current_prompt + " " + wildcard_str;
+                    prompt_textarea.value = new_prompt;
+                    prompt_textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    console.log("Inserted: " + wildcard_str);
+                } else {
+                    console.log("Prompt textarea not found");
+                }
+                var notifContainer = document.getElementById("wcc_notif_msg");
+                if (notifContainer) notifContainer.classList.add("wcc_anim"); 
+                setTimeout(() => {  if (notifContainer)  notifContainer.classList.remove("wcc_anim");    }, 2100);
+            }
+        '''
 
      
         gr_stack_page_selector  = [btn_pg_jump, tx_pg_jump, btn_pg_prev, btn_pg_next]
@@ -1083,7 +1103,8 @@ def on_ui_tabs():
 
         sel_filter_prop.change  (act_filter_mod_change , inputs= [sel_filter_prop], outputs= gr_stack_filter_pannel )
         btn_run_filter.click    (act_run_filter        , inputs= [sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input], outputs= [coll_flt_res, *gr_stack_page_selector, disp_results, btn_create_mode, *gr_stack_card_editor])
-        coll_flt_res.select     (act_select_entry       , inputs= [coll_flt_res], outputs= [coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details])
+        # Update select event to include insertion into prompt
+        coll_flt_res.select     (act_select_entry       , inputs= [coll_flt_res], outputs= [coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector], _js=js_insert_prompt)
         
         btn_pg_jump.click       (act_paginate       ,  inputs=  [tx_pg_jump], outputs= [coll_flt_res, *gr_stack_page_selector])
         btn_pg_next.click       (act_paginate_next  ,  outputs= [coll_flt_res, *gr_stack_page_selector])

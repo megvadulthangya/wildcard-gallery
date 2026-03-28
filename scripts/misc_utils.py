@@ -1,7 +1,6 @@
 from modules import scripts, shared 
 from modules.paths import extensions_dir
 
-
 import os, shutil, yaml, json, errno, urllib.parse, time, zipfile, io, requests, re
 from typing import Union, IO
 from pathlib import Path
@@ -13,47 +12,23 @@ import mimetypes
 
 def fetch_wilcards_dir():
     setting_dir = (getattr(shared.opts, "wcc_wildcards_directory", "") or "").strip()
-    
-    # If user has set a path, use it if it exists
-    if setting_dir and os.path.isdir(setting_dir):
+    found_path = os.path.join(extensions_dir,"sd-dynamic-prompts","wildcards")
+    if os.path.isdir(setting_dir):
         return setting_dir
+    elif getattr(shared.opts, "wildcard_dir", None):
+        found_path = getattr(shared.opts, "wildcard_dir", None)
+    elif getattr(shared.cmd_opts, "wildcards_dir", None):
+        found_path = getattr(shared.cmd_opts, "wildcards_dir", None)
     
-    # Otherwise, try to find a default wildcards folder
-    candidates = []
-    
-    # Standard location for sd-dynamic-prompts
-    candidates.append(os.path.join(extensions_dir, "sd-dynamic-prompts", "wildcards"))
-    
-    # Generic wildcards folder in extensions
-    candidates.append(os.path.join(extensions_dir, "wildcards"))
-    
-    # Base folder wildcards
-    if hasattr(scripts, "basedir"):
-        candidates.append(os.path.join(scripts.basedir(), "wildcards"))
-    
-    # Fallback to any path from wildcard_dir or cmd_opts
-    if getattr(shared.opts, "wildcard_dir", None):
-        candidates.append(getattr(shared.opts, "wildcard_dir", None))
-    if getattr(shared.cmd_opts, "wildcards_dir", None):
-        candidates.append(getattr(shared.cmd_opts, "wildcards_dir", None))
-    
-    # Remove None and duplicates
-    candidates = [str(Path(p).absolute()) for p in candidates if p]
-    candidates = list(dict.fromkeys(candidates))  # preserve order, dedupe
-    
-    for path in candidates:
-        if os.path.isdir(path):
-            # Found a valid wildcards directory, save it to settings
-            try:
-                setattr(shared.opts, "wcc_wildcards_directory", path)
-                shared.opts.save(shared.config_filename)
-            except Exception:
-                print(f"{EXT_NAME}: Could not save wildcards directory to settings.")
-            return path
-    
-    # If still not found, print error and return None
-    print("No wildcards directory was found. Make sure you have the sd-dynamic-prompts extension installed, or set a custom directory in the settings.")
-    return None
+    if os.path.isdir(found_path):
+        try:
+            setattr(shared.opts,"wcc_wildcards_directory",found_path)
+        except:
+            print(f"{EXT_NAME}: Wildcard directory path is not set!")
+        return found_path
+    else:
+        print("No wildcards directory was found, make sure you have the sd-dynamic-prompts extension installed, if you have a custom directory make sure to set it manually in the settings")
+        return None
 
 
 EXT_NAME = "Wildcards Gallery"
@@ -349,37 +324,35 @@ def collect_Wildcards(wildcards_dirs= [WILDCARDS_FOLDER], collect_prompts:bool =
     collected_wildcards = {}
     whitelist  = [item for item in getattr(shared.opts, "wcc_wildcards_whitelist", "").split("\n") if item] + [SHARED_ASSESTS["custom_yaml"].split("/")[1]]
     blacklist  = [item for item in getattr(shared.opts, "wcc_wildcards_blacklist", "").split("\n") if item]
-    if not wildcards_dirs : print("___Wildcard Directories is not setup yet!___")
-    for wildcards_dir in wildcards_dirs :
-        if os.path.isdir(wildcards_dir):
-            for root, dirs, files in os.walk(wildcards_dir):
-                for file in files:
-                        if file.lower().endswith(".txt") :  
-                            wild_path_txt = os.path.relpath(os.path.join(root,file),wildcards_dir).replace(os.path.sep, "/").replace(".txt", "")
-                            if((wild_path_txt in whitelist)or not whitelist) and not(wild_path_txt in blacklist):
-                                if collect_prompts and collect_sub_cards:
-                                    sub_txt_items =  get_txt_lines(os.path.join(root,file))
-                                    if len(sub_txt_items)==1:
-                                        collected_wildcards[wild_path_txt] = scanned_data_as_wildcard(node_path= wild_path_txt, prompt=sub_txt_items[0], file_origin_path= os.path.join(root,file)) 
-                                
-                                    else:
-                                        for i, item_data in enumerate(sub_txt_items):
-                                            indexed_wild_path = f"{wild_path_txt}[{i}]"
-                                            sub_txt_items[indexed_wild_path] = item_data
-                                else :
-                                    card_prompt = get_txt_content(os.path.join(root,file))  if collect_prompts else ""
-                                    collected_wildcards[wild_path_txt] = scanned_data_as_wildcard(node_path= wild_path_txt, prompt=card_prompt, file_origin_path= os.path.join(root,file))  
-                                    
-                                        
-                        elif file.lower().endswith(".yaml") :
-                            wild_yaml_name, ext = os.path.splitext(file)
-                            wild_yaml_name = wild_yaml_name.split(os.path.pathsep)[-1]
-                            if((wild_yaml_name in whitelist)or not whitelist) and not(wild_yaml_name in blacklist):
-                                new_scanned_cards = get_yaml_nodes(yaml_file_path= os.path.join(root, file) , deep_scan=collect_sub_cards)
-                                for card_path, card_prompt in new_scanned_cards.items():
-                                    collected_wildcards[card_path]= scanned_data_as_wildcard(node_path= card_path, prompt=card_prompt, file_origin_path= os.path.join(root, file))
-
-    
+    if not wildcards_dirs or not any(os.path.isdir(d) for d in wildcards_dirs if d):
+        print("___Wildcard Directories is not setup yet!___")
+        return collected_wildcards
+    for wildcards_dir in wildcards_dirs:
+        if not wildcards_dir or not os.path.isdir(wildcards_dir):
+            continue
+        for root, dirs, files in os.walk(wildcards_dir):
+            for file in files:
+                if file.lower().endswith(".txt"):
+                    wild_path_txt = os.path.relpath(os.path.join(root,file),wildcards_dir).replace(os.path.sep, "/").replace(".txt", "")
+                    if((wild_path_txt in whitelist) or not whitelist) and not(wild_path_txt in blacklist):
+                        if collect_prompts and collect_sub_cards:
+                            sub_txt_items =  get_txt_lines(os.path.join(root,file))
+                            if len(sub_txt_items)==1:
+                                collected_wildcards[wild_path_txt] = scanned_data_as_wildcard(node_path= wild_path_txt, prompt=sub_txt_items[0], file_origin_path= os.path.join(root,file))
+                            else:
+                                for i, item_data in enumerate(sub_txt_items):
+                                    indexed_wild_path = f"{wild_path_txt}[{i}]"
+                                    sub_txt_items[indexed_wild_path] = item_data
+                        else:
+                            card_prompt = get_txt_content(os.path.join(root,file))  if collect_prompts else ""
+                            collected_wildcards[wild_path_txt] = scanned_data_as_wildcard(node_path= wild_path_txt, prompt=card_prompt, file_origin_path= os.path.join(root,file))
+                elif file.lower().endswith(".yaml"):
+                    wild_yaml_name, ext = os.path.splitext(file)
+                    wild_yaml_name = wild_yaml_name.split(os.path.pathsep)[-1]
+                    if((wild_yaml_name in whitelist) or not whitelist) and not(wild_yaml_name in blacklist):
+                        new_scanned_cards = get_yaml_nodes(yaml_file_path= os.path.join(root, file) , deep_scan=collect_sub_cards)
+                        for card_path, card_prompt in new_scanned_cards.items():
+                            collected_wildcards[card_path]= scanned_data_as_wildcard(node_path= card_path, prompt=card_prompt, file_origin_path= os.path.join(root, file))
     return collected_wildcards
 
 def scanned_data_as_wildcard(node_path:str, prompt:str="", file_origin_path:str=""):
