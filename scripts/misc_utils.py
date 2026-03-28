@@ -322,8 +322,6 @@ def silentremove(filename):
 
 def collect_Wildcards(wildcards_dirs= [WILDCARDS_FOLDER], collect_prompts:bool = False, collect_sub_cards:bool = False) -> dict[str,WildcardEntry]:
     collected_wildcards = {}
-    whitelist  = [item for item in getattr(shared.opts, "wcc_wildcards_whitelist", "").split("\n") if item] + [SHARED_ASSESTS["custom_yaml"].split("/")[1]]
-    blacklist  = [item for item in getattr(shared.opts, "wcc_wildcards_blacklist", "").split("\n") if item]
     
     # Log the directories being scanned
     print(f"[{EXT_NAME}] Scanning for wildcards in directories: {wildcards_dirs}")
@@ -347,69 +345,55 @@ def collect_Wildcards(wildcards_dirs= [WILDCARDS_FOLDER], collect_prompts:bool =
                     rel_path = os.path.relpath(full_path, wildcards_dir)
                     wild_path_txt = rel_path.replace(os.path.sep, "/").replace(".txt", "")
                     
-                    # Check whitelist/blacklist
-                    in_whitelist = (wild_path_txt in whitelist) if whitelist else True
-                    in_blacklist = (wild_path_txt in blacklist) if blacklist else False
+                    # Log found file
+                    print(f"[{EXT_NAME}] Found .txt file: {full_path} -> wildcard path: {wild_path_txt}")
                     
-                    if in_whitelist and not in_blacklist:
-                        # Log found file
-                        print(f"[{EXT_NAME}] Found .txt file: {full_path} -> wildcard path: {wild_path_txt}")
-                        
-                        try:
-                            if collect_prompts and collect_sub_cards:
-                                # For sub-cards: each line is a separate card
-                                sub_txt_items = get_txt_lines(full_path)
-                                if len(sub_txt_items) == 1:
-                                    # Single line, treat as normal
-                                    collected_wildcards[wild_path_txt] = scanned_data_as_wildcard(
-                                        node_path=wild_path_txt,
-                                        prompt=sub_txt_items[0],
-                                        file_origin_path=full_path
-                                    )
-                                else:
-                                    # Multiple lines: create indexed entries
-                                    for i, item_data in enumerate(sub_txt_items):
-                                        indexed_wild_path = f"{wild_path_txt}[{i}]"
-                                        collected_wildcards[indexed_wild_path] = scanned_data_as_wildcard(
-                                            node_path=indexed_wild_path,
-                                            prompt=item_data,
-                                            file_origin_path=full_path
-                                        )
-                            else:
-                                card_prompt = get_txt_content(full_path) if collect_prompts else ""
+                    try:
+                        if collect_prompts and collect_sub_cards:
+                            # For sub-cards: each line is a separate card
+                            sub_txt_items = get_txt_lines(full_path)
+                            if len(sub_txt_items) == 1:
+                                # Single line, treat as normal
                                 collected_wildcards[wild_path_txt] = scanned_data_as_wildcard(
                                     node_path=wild_path_txt,
-                                    prompt=card_prompt,
+                                    prompt=sub_txt_items[0],
                                     file_origin_path=full_path
                                 )
-                        except Exception as e:
-                            print(f"[{EXT_NAME}] Error processing file {full_path}: {e}")
-                    else:
-                        if not in_whitelist:
-                            print(f"[{EXT_NAME}] Skipping {full_path} - not in whitelist")
-                        if in_blacklist:
-                            print(f"[{EXT_NAME}] Skipping {full_path} - in blacklist")
+                            else:
+                                # Multiple lines: create indexed entries
+                                for i, item_data in enumerate(sub_txt_items):
+                                    indexed_wild_path = f"{wild_path_txt}[{i}]"
+                                    collected_wildcards[indexed_wild_path] = scanned_data_as_wildcard(
+                                        node_path=indexed_wild_path,
+                                        prompt=item_data,
+                                        file_origin_path=full_path
+                                    )
+                        else:
+                            card_prompt = get_txt_content(full_path) if collect_prompts else ""
+                            collected_wildcards[wild_path_txt] = scanned_data_as_wildcard(
+                                node_path=wild_path_txt,
+                                prompt=card_prompt,
+                                file_origin_path=full_path
+                            )
+                    except Exception as e:
+                        print(f"[{EXT_NAME}] Error processing file {full_path}: {e}")
                 
                 elif file.lower().endswith(".yaml"):
                     full_path = os.path.join(root, file)
                     wild_yaml_name, ext = os.path.splitext(file)
                     wild_yaml_name = wild_yaml_name.split(os.path.pathsep)[-1]
                     
-                    in_whitelist = (wild_yaml_name in whitelist) if whitelist else True
-                    in_blacklist = (wild_yaml_name in blacklist) if blacklist else False
-                    
-                    if in_whitelist and not in_blacklist:
-                        print(f"[{EXT_NAME}] Found .yaml file: {full_path}")
-                        try:
-                            new_scanned_cards = get_yaml_nodes(yaml_file_path=full_path, deep_scan=collect_sub_cards)
-                            for card_path, card_prompt in new_scanned_cards.items():
-                                collected_wildcards[card_path] = scanned_data_as_wildcard(
-                                    node_path=card_path,
-                                    prompt=card_prompt,
-                                    file_origin_path=full_path
-                                )
-                        except Exception as e:
-                            print(f"[{EXT_NAME}] Error processing YAML file {full_path}: {e}")
+                    print(f"[{EXT_NAME}] Found .yaml file: {full_path}")
+                    try:
+                        new_scanned_cards = get_yaml_nodes(yaml_file_path=full_path, deep_scan=collect_sub_cards)
+                        for card_path, card_prompt in new_scanned_cards.items():
+                            collected_wildcards[card_path] = scanned_data_as_wildcard(
+                                node_path=card_path,
+                                prompt=card_prompt,
+                                file_origin_path=full_path
+                            )
+                    except Exception as e:
+                        print(f"[{EXT_NAME}] Error processing YAML file {full_path}: {e}")
     
     print(f"[{EXT_NAME}] Total wildcards found: {len(collected_wildcards)}")
     return collected_wildcards
