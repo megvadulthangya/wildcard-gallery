@@ -154,7 +154,7 @@ def update_gallery_view(new_sel_index=None, update_stacks=False):
 
 
     samples_list = []
-    if new_sel_index and not multi_selection_mode:
+    if new_sel_index is not None and not multi_selection_mode:
         selected_stack_paths = []
         selected_entries = []
  
@@ -226,7 +226,7 @@ def update_gallery_view(new_sel_index=None, update_stacks=False):
                                                       )])
     last_edit = selected_entries[-1] if selected_entries else last_edit
     
-    if new_sel_index and current_stack_level>0 and not multi_selection_mode:
+    if new_sel_index is not None and current_stack_level>0 and not multi_selection_mode:
         current_stack_level = 0
         filtered_stacks =   {}
         filtered_pile= selected_entries.copy()
@@ -395,7 +395,9 @@ def act_select_entry(index):
     global card_edit_mode
     card_edit_mode = False
 
-    index = index[0] if isinstance(index,list) else index #in case of gradio 3
+    # Gradio 4 passes index as int; Gradio 3 passed as list
+    if isinstance(index, list):
+        index = index[0] if index else None
 
     old_count = len(selected_entries)
     samples_list =  update_gallery_view( new_sel_index= index)
@@ -982,7 +984,7 @@ def on_ui_tabs():
                             btn_create_mode     = gr.Button("➕ Create New Card", visible=True, elem_classes="wcc_status_btn")
                             
                 wcards_selector = gr.Textbox(visible= False, interactive=False)
-                coll_flt_res = gr.Dataset(visible= False,  label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"], sanitize=False)], samples= [[i] for i in range(0, ITEMS_CAP)], samples_per_page=ITEMS_CAP+1 , type="index")
+                coll_flt_res = gr.Dataset(visible= False,  label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples= [[i] for i in range(0, ITEMS_CAP)], samples_per_page=ITEMS_CAP+1 , type="index")
                 with gr.Row( elem_id= "wcc_pag_div") :
                     btn_pg_prev = gr.Button("\u25C0", visible= False)
                     tx_pg_jump = gr.Textbox(label="page", visible= False)

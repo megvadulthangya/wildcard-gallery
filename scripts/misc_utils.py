@@ -13,23 +13,47 @@ import mimetypes
 
 def fetch_wilcards_dir():
     setting_dir = (getattr(shared.opts, "wcc_wildcards_directory", "") or "").strip()
-    found_path = os.path.join(extensions_dir,"sd-dynamic-prompts","wildcards")
-    if os.path.isdir(setting_dir):
-        return setting_dir
-    elif getattr(shared.opts, "wildcard_dir", None):
-        found_path = getattr(shared.opts, "wildcard_dir", None)
-    elif getattr(shared.cmd_opts, "wildcards_dir", None):
-        found_path = getattr(shared.cmd_opts, "wildcards_dir", None)
     
-    if os.path.isdir(found_path):
-        try:
-            setattr(shared.opts,"wcc_wildcards_directory",found_path)
-        except:
-            print(f"{EXT_NAME}: Wildcard directory path is not set!")
-        return found_path
-    else:
-        print("No wilcards directory was found, make sure you have the sd-dynamic-prompts extension installed, if you have a custom directory make sure to set it manually in the settings")
-        return None
+    # If user has set a path, use it if it exists
+    if setting_dir and os.path.isdir(setting_dir):
+        return setting_dir
+    
+    # Otherwise, try to find a default wildcards folder
+    candidates = []
+    
+    # Standard location for sd-dynamic-prompts
+    candidates.append(os.path.join(extensions_dir, "sd-dynamic-prompts", "wildcards"))
+    
+    # Generic wildcards folder in extensions
+    candidates.append(os.path.join(extensions_dir, "wildcards"))
+    
+    # Base folder wildcards
+    if hasattr(scripts, "basedir"):
+        candidates.append(os.path.join(scripts.basedir(), "wildcards"))
+    
+    # Fallback to any path from wildcard_dir or cmd_opts
+    if getattr(shared.opts, "wildcard_dir", None):
+        candidates.append(getattr(shared.opts, "wildcard_dir", None))
+    if getattr(shared.cmd_opts, "wildcards_dir", None):
+        candidates.append(getattr(shared.cmd_opts, "wildcards_dir", None))
+    
+    # Remove None and duplicates
+    candidates = [str(Path(p).absolute()) for p in candidates if p]
+    candidates = list(dict.fromkeys(candidates))  # preserve order, dedupe
+    
+    for path in candidates:
+        if os.path.isdir(path):
+            # Found a valid wildcards directory, save it to settings
+            try:
+                setattr(shared.opts, "wcc_wildcards_directory", path)
+                shared.opts.save(shared.config_filename)
+            except Exception:
+                print(f"{EXT_NAME}: Could not save wildcards directory to settings.")
+            return path
+    
+    # If still not found, print error and return None
+    print("No wildcards directory was found. Make sure you have the sd-dynamic-prompts extension installed, or set a custom directory in the settings.")
+    return None
 
 
 EXT_NAME = "Wildcards Gallery"
