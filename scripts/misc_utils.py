@@ -1,7 +1,7 @@
 from modules import scripts, shared 
 from modules.paths import extensions_dir
 
-import os, shutil, yaml, json, errno, urllib.parse, time, zipfile, io, requests, re
+import os, shutil, yaml, json, errno, urllib.parse, time, zipfile, io, requests, re, html as html_mod
 from typing import Union, IO
 from pathlib import Path
 from fastapi.exceptions import HTTPException
@@ -170,7 +170,7 @@ class WildcardEntry:
             if config and ((config.masked and hide_masked) or (config.config_name in masked_groups)):
                 continue
             tag_cfg = config_block.replace("##tx_col##",config.tx_color).replace("##bg_col##",config.bg_color) if config else ""
-            tags_stack+=tag_html_block.replace("##stl##",tag_cfg).replace("###",tag)
+            tags_stack+=tag_html_block.replace("##stl##",tag_cfg).replace("###",html_mod.escape(tag))
         
         
         return tags_stack_block.replace("###",tags_stack)
@@ -179,7 +179,7 @@ class WildcardEntry:
         select_symb = r'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <path d="M9 16.2l-4.2-4.2 1.4-1.4L9 13.4l7.8-7.8 1.4 1.4L9 16.2z"></path> </svg>'
         stack_tag = f'<div class="wcc_stack_tag">{stack_count} Cards</div>'
         main_html_block = r'<div class="wcc_gal_item " ##img## >##stk## <div class="shine"></div>###</div>' 
-        generated_block = f'<div class="wcc_gal_label">{stack_name}</div>' if stack_count >1 else f'<div class="wcc_gal_label">{self.name}</div>' 
+        generated_block = f'<div class="wcc_gal_label">{html_mod.escape(stack_name)}</div>' if stack_count >1 else f'<div class="wcc_gal_label">{html_mod.escape(self.name)}</div>' 
 
         img_file = self.thumbnails.get(img_channel,"") 
         image_block = f'style="background-image: url({link_img(img_file, self.last_update)});"' if img_file else 'style="background-image: url(./resources/card-no-preview.jpg);"'
@@ -256,25 +256,35 @@ def load_base_url():
     
     return BASE_URL
 
+ALLOWED_MIME_PREFIXES = ("image/",)
+
 def fetch_img(filename: str = ""):
-    if not os.path.isfile(filename):
+    if not filename:
+        raise HTTPException(status_code=400, detail="Missing filename parameter")
+
+    resolved = os.path.realpath(filename)
+
+    if not os.path.isfile(resolved):
         raise HTTPException(status_code=404, detail="File not found")
-    else:
-        try:
-            filename = os.path.realpath(filename)
-            fileDir = os.path.dirname(filename)
-            content_type, _ = mimetypes.guess_type(filename)
-            common      = os.path.commonpath([CARDS_FOLDER, fileDir])
-            common_res  = os.path.commonpath([RES_FOLDER, fileDir])
-        except ValueError:
-            raise HTTPException(status_code=403, detail="File out of addon directory")
-        
-        if common !=CARDS_FOLDER and common_res!=RES_FOLDER:
-            raise HTTPException(status_code=403, detail="File out of addon directory")
-        elif not content_type:
-            raise HTTPException(status_code=415, detail="Unsupported media type")
-                                    
-    return FileResponse(filename, headers={"Accept-Ranges": "bytes"}, media_type=content_type)
+
+    try:
+        resolved_dir = os.path.dirname(resolved)
+        resolved_cards = os.path.realpath(CARDS_FOLDER)
+        resolved_res = os.path.realpath(RES_FOLDER)
+        content_type, _ = mimetypes.guess_type(resolved)
+    except (ValueError, OSError):
+        raise HTTPException(status_code=403, detail="File out of addon directory")
+
+    in_cards = os.path.commonpath([resolved_cards, resolved_dir]) == resolved_cards
+    in_res = os.path.commonpath([resolved_res, resolved_dir]) == resolved_res
+
+    if not (in_cards or in_res):
+        raise HTTPException(status_code=403, detail="File out of addon directory")
+
+    if not content_type or not content_type.startswith(ALLOWED_MIME_PREFIXES):
+        raise HTTPException(status_code=415, detail="Unsupported media type")
+
+    return FileResponse(resolved, headers={"Accept-Ranges": "bytes"}, media_type=content_type)
 
 def link_img(filename, ver=1, absolute =False):
     quoted_filename = urllib.parse.quote(filename.replace('\\', '/'))
@@ -769,6 +779,10 @@ def unpack_wildcard_pack(pack_path) -> str:
             if member.startswith(zip_cards_sub_path) and not member.endswith('/'):
                 source = zip_ref.open(member)
                 target_path = os.path.join(CARDS_FOLDER, os.path.relpath(member, 'cards/'))
+                target_path = os.path.realpath(target_path)
+                if not target_path.startswith(os.path.realpath(CARDS_FOLDER) + os.sep):
+                    print(f"[{EXT_NAME}] Skipping unsafe zip entry: {member}")
+                    continue
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
                 with open(target_path, 'wb') as f:
                     shutil.copyfileobj(source, f)
@@ -776,7 +790,11 @@ def unpack_wildcard_pack(pack_path) -> str:
             elif member.endswith('.yaml'):
                 source = zip_ref.open(member)
                 imported_yaml_name, _= os.path.splitext(member)
-                target_file = os.path.join(traget_dir,member)
+                target_file = os.path.join(traget_dir, os.path.basename(member))
+                target_file = os.path.realpath(target_file)
+                if not target_file.startswith(os.path.realpath(traget_dir) + os.sep):
+                    print(f"[{EXT_NAME}] Skipping unsafe zip entry: {member}")
+                    continue
                 os.makedirs(os.path.dirname(target_file), exist_ok=True)
                 with open(target_file, 'wb') as f:
                     shutil.copyfileobj(source, f)
@@ -922,7 +940,7 @@ def wildpack_info_scan(wildpack_file_path):
 def html_simple_list(items:list):
     list_wraper = "<ul>"  
     for item in items:
-        list_wraper +=f"<li> {item} </li>"
+        list_wraper +=f"<li> {html_mod.escape(str(item))} </li>"
     return list_wraper+ "</ul>" 
 
 def strip_trailing_number(s):
