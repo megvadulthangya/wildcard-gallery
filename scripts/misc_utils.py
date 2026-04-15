@@ -179,10 +179,17 @@ class WildcardEntry:
         select_symb = r'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <path d="M9 16.2l-4.2-4.2 1.4-1.4L9 13.4l7.8-7.8 1.4 1.4L9 16.2z"></path> </svg>'
         stack_tag = f'<div class="wcc_stack_tag">{stack_count} Cards</div>'
         main_html_block = r'<div class="wcc_gal_item " ##img## >##stk## <div class="shine"></div>###</div>' 
-        generated_block = f'<div class="wcc_gal_label">{html_mod.escape(stack_name)}</div>' if stack_count >1 else f'<div class="wcc_gal_label">{html_mod.escape(self.name)}</div>' 
+        display_name = stack_name if stack_count > 1 else self.name
+        generated_block = f'<div class="wcc_gal_label">{html_mod.escape(display_name)}</div>'
 
-        img_file = self.thumbnails.get(img_channel,"") 
-        image_block = f'style="background-image: url({link_img(img_file, self.last_update)});"' if img_file else 'style="background-image: url(./resources/card-no-preview.jpg);"'
+        img_file = self.thumbnails.get(img_channel,"")
+        has_real_preview = img_file and img_file != SHARED_ASSESTS.get("card_fallback", "")
+        if has_real_preview:
+            image_block = f'style="background-image: url({link_img(img_file, self.last_update)});"'
+        else:
+            image_block = ''
+            text_card_label = f'<div class="wcc_text_card_name">{display_name}</div>'
+            main_html_block = main_html_block.replace("wcc_gal_item", "wcc_gal_item wcc_text_card")
 
         if stack_count >1:
             main_html_block= main_html_block.replace("wcc_gal_item", "wcc_gal_item wcc_item_stack ") 
@@ -195,6 +202,9 @@ class WildcardEntry:
 
         if "All" not in hidden_tag_groups:
             generated_block= self.html_tag_stack(config_dict, hide_masked= "Masked Tags" in hidden_tag_groups, masked_groups= hidden_tag_groups) + generated_block
+
+        if not has_real_preview:
+            generated_block = text_card_label + generated_block
         
         return main_html_block.replace("###",generated_block).replace("##img##",image_block)
     
@@ -287,6 +297,8 @@ def fetch_img(filename: str = ""):
     return FileResponse(resolved, headers={"Accept-Ranges": "bytes"}, media_type=content_type)
 
 def link_img(filename, ver=1, absolute =False):
+    if not filename:
+        return ""
     quoted_filename = urllib.parse.quote(filename.replace('\\', '/'))
     return f"/wcc_cards/img?filename={quoted_filename}&v={ver}"
 

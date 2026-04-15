@@ -353,6 +353,25 @@
     background-size: cover !important  ;
     justify-content: space-between;
 }
+
+.wcc_gal_item.wcc_text_card{
+    background: linear-gradient(135deg, var(--button-secondary-background-fill), var(--button-primary-background-fill));
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.wcc_text_card_name{
+    font-size: clamp(14px, 1.4vw, 22px);
+    font-weight: bold;
+    color: var(--body-text-color);
+    padding: 0.5em;
+    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 60%;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.3);
+}
 .wcc_tag_stack{
     display: flex;
     flex-wrap: wrap;
