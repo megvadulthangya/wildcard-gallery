@@ -786,52 +786,75 @@ def unpack_wildcard_pack(pack_path) -> str:
     tags_db_file = os.path.join(META_FOLDER, "tags_data.json")
     traget_dir = os.path.join(WILDCARDS_FOLDER,ADDED_WILDCARDS_FOLDER,"imported")
 
-    def _is_card_like(name: str) -> bool:
+    def _is_card_file(name: str) -> bool:
+        return not name.endswith('/') and name.lower().endswith('.card')
+
+    def _is_img_file(name: str) -> bool:
         if name.endswith('/'):
             return False
         lower = name.lower()
-        if lower.endswith('.card'):
-            return True
         return any(lower.endswith(ext) for ext in VALID_IMG_EXT)
+
+    def _common_zip_prefix(members) -> str:
+        # Returns the common directory prefix (including trailing '/') for a set
+        # of zip entries, or "" when there is no shared parent directory.
+        if not members:
+            return ""
+        dirs = [os.path.dirname(m) for m in members]
+        try:
+            common = os.path.commonpath(dirs)
+        except ValueError:
+            common = ""
+        return (common + "/") if common else ""
 
     with zipfile.ZipFile(pack_path, 'r') as zip_ref:
         namelist = zip_ref.namelist()
 
-        # Determine which zip prefix holds the card / thumbnail files.
+        # Determine which zip prefix(es) hold the card / thumbnail files.
         # Default: the standard "cards/" sub-path produced by this extension's own
         # exports (kept verbatim for backward compatibility).
         # Fallback: for community-made / non-standard packs that don't use a
-        # "cards/" subdirectory, detect the common root of image and .card
-        # entries and treat that as the cards directory.
+        # "cards/" subdirectory, detect the common root of .card files and of
+        # image files *independently*. Some packs keep wildcard .card files in
+        # one subtree and thumbnails in another (e.g. .card under "DX888/SFW/"
+        # and .jpeg at the zip root) — stripping each group by its own common
+        # root keeps matching .card + thumbnail pairs together under CARDS_FOLDER
+        # instead of dumping them at divergent paths.
         has_standard_cards = any(
             m.startswith(zip_cards_sub_path) and not m.endswith('/')
             for m in namelist
         )
         if has_standard_cards:
-            cards_prefix = zip_cards_sub_path
-            fallback_members = set()
+            card_members: set[str] = set()
+            img_members: set[str] = set()
+            card_prefix = zip_cards_sub_path
+            img_prefix = zip_cards_sub_path
         else:
-            fallback_members = {m for m in namelist if _is_card_like(m)}
-            if fallback_members:
-                dirs = [os.path.dirname(m) for m in fallback_members]
-                try:
-                    common = os.path.commonpath(dirs)
-                except ValueError:
-                    common = ""
-                cards_prefix = (common + "/") if common else ""
-            else:
-                cards_prefix = zip_cards_sub_path
+            card_members = {m for m in namelist if _is_card_file(m)}
+            img_members = {m for m in namelist if _is_img_file(m)}
+            card_prefix = _common_zip_prefix(card_members)
+            img_prefix = _common_zip_prefix(img_members)
 
         for member in namelist:
             if member.endswith('/'):
                 continue
 
             is_standard_card = has_standard_cards and member.startswith(zip_cards_sub_path)
-            is_fallback_card = member in fallback_members
+            is_fallback_card = member in card_members
+            is_fallback_img = member in img_members
 
-            if is_standard_card or is_fallback_card:
+            if is_standard_card or is_fallback_card or is_fallback_img:
+                if is_standard_card:
+                    prefix = zip_cards_sub_path
+                elif is_fallback_card:
+                    prefix = card_prefix
+                else:
+                    prefix = img_prefix
                 source = zip_ref.open(member)
-                rel = os.path.relpath(member, cards_prefix) if cards_prefix else member
+                if prefix and member.startswith(prefix):
+                    rel = member[len(prefix):]
+                else:
+                    rel = member
                 target_path = os.path.join(CARDS_FOLDER, rel)
                 target_path = os.path.realpath(target_path)
                 if not target_path.startswith(os.path.realpath(CARDS_FOLDER) + os.sep):
