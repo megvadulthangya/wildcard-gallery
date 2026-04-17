@@ -1,7 +1,7 @@
 from modules import scripts, shared 
 from modules.paths import extensions_dir
 
-import os, shutil, yaml, json, errno, urllib.parse, time, zipfile, io, requests, re, html as html_mod
+import os, posixpath, shutil, yaml, json, errno, urllib.parse, time, zipfile, io, requests, re, html as html_mod
 from typing import Union, IO
 from pathlib import Path
 from fastapi.exceptions import HTTPException
@@ -798,11 +798,14 @@ def unpack_wildcard_pack(pack_path) -> str:
     def _common_zip_prefix(members) -> str:
         # Returns the common directory prefix (including trailing '/') for a set
         # of zip entries, or "" when there is no shared parent directory.
+        # Uses posixpath because zip entry names always use forward slashes;
+        # os.path.commonpath would normalize to backslashes on Windows and
+        # break the later `member.startswith(prefix)` check.
         if not members:
             return ""
-        dirs = [os.path.dirname(m) for m in members]
+        dirs = [posixpath.dirname(m) for m in members]
         try:
-            common = os.path.commonpath(dirs)
+            common = posixpath.commonpath(dirs)
         except ValueError:
             common = ""
         return (common + "/") if common else ""
@@ -834,6 +837,17 @@ def unpack_wildcard_pack(pack_path) -> str:
             img_members = {m for m in namelist if _is_img_file(m)}
             card_prefix = _common_zip_prefix(card_members)
             img_prefix = _common_zip_prefix(img_members)
+            # If one group's common prefix is a descendant of the other, widen the
+            # deeper one to the shallower prefix. This keeps matching .card +
+            # thumbnail pairs together when e.g. both live under "mypack/" but
+            # the images only populate a sub-folder like "mypack/catA/". Pure
+            # per-group stripping there would otherwise drop the "catA/" segment
+            # only from images and break the pairing.
+            if card_prefix and img_prefix:
+                if img_prefix.startswith(card_prefix):
+                    img_prefix = card_prefix
+                elif card_prefix.startswith(img_prefix):
+                    card_prefix = img_prefix
 
         for member in namelist:
             if member.endswith('/'):
