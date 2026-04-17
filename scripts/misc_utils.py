@@ -1,7 +1,7 @@
 from modules import scripts, shared 
 from modules.paths import extensions_dir
 
-import os, posixpath, shutil, yaml, json, errno, urllib.parse, time, zipfile, io, requests, re, html as html_mod
+import os, shutil, yaml, json, errno, urllib.parse, time, zipfile, io, requests, re, html as html_mod
 from typing import Union, IO
 from pathlib import Path
 from fastapi.exceptions import HTTPException
@@ -786,87 +786,46 @@ def unpack_wildcard_pack(pack_path) -> str:
     tags_db_file = os.path.join(META_FOLDER, "tags_data.json")
     traget_dir = os.path.join(WILDCARDS_FOLDER,ADDED_WILDCARDS_FOLDER,"imported")
 
-    def _is_card_file(name: str) -> bool:
-        return not name.endswith('/') and name.lower().endswith('.card')
-
-    def _is_img_file(name: str) -> bool:
+    def _is_card_like(name: str) -> bool:
         if name.endswith('/'):
             return False
         lower = name.lower()
+        if lower.endswith('.card'):
+            return True
         return any(lower.endswith(ext) for ext in VALID_IMG_EXT)
-
-    def _common_zip_prefix(members) -> str:
-        # Returns the common directory prefix (including trailing '/') for a set
-        # of zip entries, or "" when there is no shared parent directory.
-        # Uses posixpath because zip entry names always use forward slashes;
-        # os.path.commonpath would normalize to backslashes on Windows and
-        # break the later `member.startswith(prefix)` check.
-        if not members:
-            return ""
-        dirs = [posixpath.dirname(m) for m in members]
-        try:
-            common = posixpath.commonpath(dirs)
-        except ValueError:
-            common = ""
-        return (common + "/") if common else ""
 
     with zipfile.ZipFile(pack_path, 'r') as zip_ref:
         namelist = zip_ref.namelist()
 
-        # Determine which zip prefix(es) hold the card / thumbnail files.
-        # Default: the standard "cards/" sub-path produced by this extension's own
-        # exports (kept verbatim for backward compatibility).
-        # Fallback: for community-made / non-standard packs that don't use a
-        # "cards/" subdirectory, detect the common root of .card files and of
-        # image files *independently*. Some packs keep wildcard .card files in
-        # one subtree and thumbnails in another (e.g. .card under "DX888/SFW/"
-        # and .jpeg at the zip root) — stripping each group by its own common
-        # root keeps matching .card + thumbnail pairs together under CARDS_FOLDER
-        # instead of dumping them at divergent paths.
+        # How card / thumbnail files are mapped into CARDS_FOLDER:
+        # - Standard packs exported by this extension wrap everything in a
+        #   top-level "cards/" directory, which is stripped so e.g.
+        #   "cards/DX888/SFW/foo.card" lands at "CARDS_FOLDER/DX888/SFW/foo.card".
+        # - Non-standard / community packs don't wrap things in "cards/". Their
+        #   internal paths are expected to already be the wildcard paths (the
+        #   YAML declares wildcards like "DX888/SFW/…" and the extension looks
+        #   up thumbnails at "CARDS_FOLDER/<wildcard-path>.<ext>"). We therefore
+        #   extract such packs VERBATIM — preserving the full zip-internal path
+        #   so the extracted tree matches the YAML's wildcard paths. Stripping a
+        #   detected common prefix here is wrong in the general case because the
+        #   prefix is usually a real part of the wildcard path, not packaging
+        #   overhead (e.g. a "DX888/SFW/" prefix is the wildcard namespace).
         has_standard_cards = any(
             m.startswith(zip_cards_sub_path) and not m.endswith('/')
             for m in namelist
         )
-        if has_standard_cards:
-            card_members: set[str] = set()
-            img_members: set[str] = set()
-            card_prefix = zip_cards_sub_path
-            img_prefix = zip_cards_sub_path
-        else:
-            card_members = {m for m in namelist if _is_card_file(m)}
-            img_members = {m for m in namelist if _is_img_file(m)}
-            card_prefix = _common_zip_prefix(card_members)
-            img_prefix = _common_zip_prefix(img_members)
-            # If one group's common prefix is a descendant of the other, widen the
-            # deeper one to the shallower prefix. This keeps matching .card +
-            # thumbnail pairs together when e.g. both live under "mypack/" but
-            # the images only populate a sub-folder like "mypack/catA/". Pure
-            # per-group stripping there would otherwise drop the "catA/" segment
-            # only from images and break the pairing.
-            if card_prefix and img_prefix:
-                if img_prefix.startswith(card_prefix):
-                    img_prefix = card_prefix
-                elif card_prefix.startswith(img_prefix):
-                    card_prefix = img_prefix
 
         for member in namelist:
             if member.endswith('/'):
                 continue
 
             is_standard_card = has_standard_cards and member.startswith(zip_cards_sub_path)
-            is_fallback_card = member in card_members
-            is_fallback_img = member in img_members
+            is_fallback_card = not has_standard_cards and _is_card_like(member)
 
-            if is_standard_card or is_fallback_card or is_fallback_img:
-                if is_standard_card:
-                    prefix = zip_cards_sub_path
-                elif is_fallback_card:
-                    prefix = card_prefix
-                else:
-                    prefix = img_prefix
+            if is_standard_card or is_fallback_card:
                 source = zip_ref.open(member)
-                if prefix and member.startswith(prefix):
-                    rel = member[len(prefix):]
+                if is_standard_card:
+                    rel = member[len(zip_cards_sub_path):]
                 else:
                     rel = member
                 target_path = os.path.join(CARDS_FOLDER, rel)
