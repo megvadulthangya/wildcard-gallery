@@ -1,5 +1,6 @@
 import gradio as gr
-import math 
+import math
+import html as html_mod
 from scripts.misc_utils import  (   load_tags, save_tags, save_tag_config, process_selector,WildcardEntry, TagConfig,update_wildcard_yaml,create_dir_and_file, unpack_wildcard_pack,
                                     collect_stray_previews, export_cards_pack, wildpack_info_scan, html_simple_list,
                                     link_img, IMG_CHANNELS,  WILD_STR, CARDS_FOLDER, EXT_NAME, ICON_LIB)
@@ -74,10 +75,10 @@ def init_filter_module(built_wildcards_dict:dict[str,WildcardEntry], built_tags_
 def details_pannel_html (selected_card:WildcardEntry):
     main_html_block = r'<div >###</div>'
     detail_block = f'<div class="wcc_card_detail" ><label class="wcc_detail_header" >##hr##:</label> <label class="wcc_detail_text">##tx##</label></div>'
-    generated_html = detail_block.replace("##hr##","Card Path").replace("##tx##",selected_card.path)
-    generated_html += detail_block.replace("##hr##","Prompt").replace("##tx##",f"{selected_card.prompts}")
-    generated_html += detail_block.replace("##hr##","File").replace("##tx##",f"{selected_card.file_origin}")
-    generated_html += detail_block.replace("##hr##","Protected").replace("##tx##",f"{selected_card.is_locked}")
+    generated_html = detail_block.replace("##hr##","Card Path").replace("##tx##",html_mod.escape(selected_card.path))
+    generated_html += detail_block.replace("##hr##","Prompt").replace("##tx##",html_mod.escape(f"{selected_card.prompts}"))
+    generated_html += detail_block.replace("##hr##","File").replace("##tx##",html_mod.escape(f"{selected_card.file_origin}"))
+    generated_html += detail_block.replace("##hr##","Protected").replace("##tx##",html_mod.escape(f"{selected_card.is_locked}"))
     
     generated_html += detail_block.replace("##hr##","Channels").replace("##tx##",  html_simple_list(selected_card.get_preview_channels())  )
     generated_html  =  selected_card.html_tag_stack(tag_config_dict) + generated_html
@@ -85,7 +86,7 @@ def details_pannel_html (selected_card:WildcardEntry):
 
 def toast_notif(msg="", is_err=False):
     added_class = "wcc_notif_err" if is_err else ""
-    return f'<div id="wcc_notif_msg" class="{added_class}" > {msg} </div>'
+    return f'<div id="wcc_notif_msg" class="{added_class}" > {html_mod.escape(msg)} </div>'
 
 def creation_pannel_html (is_done=False, is_error=False):
 
@@ -128,7 +129,7 @@ def update_stack_view(selected_cards:list[WildcardEntry]=[], invert:bool = False
             card_img = img_block.replace("##url##",link_img(img, card.last_update)) if img else ""
         generated_html =card_html_block.replace("#ndx#",f"{index}").replace("###",card_img) + generated_html
     
-    title = selected_cards[0].name if len(selected_cards) ==1 else f"[{len(selected_cards)} Wildcards Selected]"
+    title = html_mod.escape(selected_cards[0].name) if len(selected_cards) ==1 else f"[{len(selected_cards)} Wildcards Selected]"
 
     return main_html_block.replace("###",generated_html).replace("#label#",title) 
 
