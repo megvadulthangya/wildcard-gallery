@@ -785,12 +785,54 @@ def unpack_wildcard_pack(pack_path) -> str:
     
     tags_db_file = os.path.join(META_FOLDER, "tags_data.json")
     traget_dir = os.path.join(WILDCARDS_FOLDER,ADDED_WILDCARDS_FOLDER,"imported")
-    
+
+    def _is_card_like(name: str) -> bool:
+        if name.endswith('/'):
+            return False
+        lower = name.lower()
+        if lower.endswith('.card'):
+            return True
+        return any(lower.endswith(ext) for ext in VALID_IMG_EXT)
+
     with zipfile.ZipFile(pack_path, 'r') as zip_ref:
-        for member in zip_ref.namelist():
-            if member.startswith(zip_cards_sub_path) and not member.endswith('/'):
+        namelist = zip_ref.namelist()
+
+        # Determine which zip prefix holds the card / thumbnail files.
+        # Default: the standard "cards/" sub-path produced by this extension's own
+        # exports (kept verbatim for backward compatibility).
+        # Fallback: for community-made / non-standard packs that don't use a
+        # "cards/" subdirectory, detect the common root of image and .card
+        # entries and treat that as the cards directory.
+        has_standard_cards = any(
+            m.startswith(zip_cards_sub_path) and not m.endswith('/')
+            for m in namelist
+        )
+        if has_standard_cards:
+            cards_prefix = zip_cards_sub_path
+            fallback_members = set()
+        else:
+            fallback_members = {m for m in namelist if _is_card_like(m)}
+            if fallback_members:
+                dirs = [os.path.dirname(m) for m in fallback_members]
+                try:
+                    common = os.path.commonpath(dirs)
+                except ValueError:
+                    common = ""
+                cards_prefix = (common + "/") if common else ""
+            else:
+                cards_prefix = zip_cards_sub_path
+
+        for member in namelist:
+            if member.endswith('/'):
+                continue
+
+            is_standard_card = has_standard_cards and member.startswith(zip_cards_sub_path)
+            is_fallback_card = member in fallback_members
+
+            if is_standard_card or is_fallback_card:
                 source = zip_ref.open(member)
-                target_path = os.path.join(CARDS_FOLDER, os.path.relpath(member, 'cards/'))
+                rel = os.path.relpath(member, cards_prefix) if cards_prefix else member
+                target_path = os.path.join(CARDS_FOLDER, rel)
                 target_path = os.path.realpath(target_path)
                 if not target_path.startswith(os.path.realpath(CARDS_FOLDER) + os.sep):
                     print(f"[{EXT_NAME}] Skipping unsafe zip entry: {member}")
@@ -934,7 +976,8 @@ def wildpack_info_scan(wildpack_file_path):
     got_tags = False
     if (os.path.exists(wildpack_file_path)):
         with zipfile.ZipFile(wildpack_file_path, 'r') as zip_ref:
-            for member in zip_ref.namelist():
+            namelist = zip_ref.namelist()
+            for member in namelist:
                 if member.startswith(cards_sub_path):
                     for ext in VALID_IMG_EXT:
                         if member.endswith(ext):
@@ -946,6 +989,17 @@ def wildpack_info_scan(wildpack_file_path):
                     with zip_ref.open(member) as targe_file:
                         decoded_io = io.TextIOWrapper(targe_file, encoding='utf-8')
                         yaml_nodes = get_yaml_nodes(yaml_file_path= decoded_io, deep_scan=True)
+
+            # Fallback: non-standard packs may not use the "cards/" sub-path at all.
+            # If nothing was collected under "cards/", scan the whole archive for
+            # image files so the info scan still reports accurate thumbnail counts.
+            if not thumbnails_imgs:
+                for member in namelist:
+                    if member.endswith('/'):
+                        continue
+                    lower = member.lower()
+                    if any(lower.endswith(ext) for ext in VALID_IMG_EXT):
+                        thumbnails_imgs.append(member)
         
     return yaml_nodes, thumbnails_imgs, got_tags
         
