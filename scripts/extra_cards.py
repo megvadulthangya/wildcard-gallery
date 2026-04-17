@@ -289,7 +289,7 @@ class Script(scripts.Script):
         script_mode.change      (change_scrip_mode, inputs=script_mode, outputs= [filter_extact_mode, prompting_mode, task_override, preview_suffix, insertion_type, btn_run_gen, replace_str_opt])
         insertion_type.change   (toggle_search_replace_box, inputs=insertion_type, outputs= replace_str_opt )
         act_count.click         (btn_count_wildcards,   inputs= [filter_extact_mode], outputs=act_msg)  
-        btn_run_gen.click       (act_lunch_gen,   inputs= [filter_extact_mode]).then(None, _js=gen_click_js)
+        btn_run_gen.click       (act_lunch_gen,   inputs= [filter_extact_mode]).then(None, js=gen_click_js)
          
         
         

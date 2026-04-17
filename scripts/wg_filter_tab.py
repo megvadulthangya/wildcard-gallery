@@ -986,8 +986,8 @@ def on_ui_tabs():
                             btn_create_mode     = gr.Button("➕ Create New Card", visible=True, elem_classes="wcc_status_btn")
                             
                 wcards_selector = gr.Textbox(visible= False, interactive=False)
-                # Updated Dataset for Gradio 4.40: removed sanitize=False
-                coll_flt_res = gr.Dataset(visible= False,  label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples= [[i] for i in range(0, ITEMS_CAP)], samples_per_page=ITEMS_CAP+1 , type="index")
+                # Gradio 4.40 compatibility: use string samples for HTML component, type="index"
+                coll_flt_res = gr.Dataset(visible= False,  label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples= [["<div></div>"] for _ in range(ITEMS_CAP)], samples_per_page=ITEMS_CAP+1 , type="index")
                 with gr.Row( elem_id= "wcc_pag_div") :
                     btn_pg_prev = gr.Button("\u25C0", visible= False)
                     tx_pg_jump = gr.Textbox(label="page", visible= False)
@@ -1105,7 +1105,7 @@ def on_ui_tabs():
         sel_filter_prop.change  (act_filter_mod_change , inputs= [sel_filter_prop], outputs= gr_stack_filter_pannel )
         btn_run_filter.click    (act_run_filter        , inputs= [sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input], outputs= [coll_flt_res, *gr_stack_page_selector, disp_results, btn_create_mode, *gr_stack_card_editor])
         # Update select event to include insertion into prompt
-        coll_flt_res.select     (act_select_entry       , inputs= [coll_flt_res], outputs= [coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector], _js=js_insert_prompt)
+        coll_flt_res.select     (act_select_entry       , inputs= [coll_flt_res], outputs= [coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector], js=js_insert_prompt)
         
         btn_pg_jump.click       (act_paginate       ,  inputs=  [tx_pg_jump], outputs= [coll_flt_res, *gr_stack_page_selector])
         btn_pg_next.click       (act_paginate_next  ,  outputs= [coll_flt_res, *gr_stack_page_selector])
@@ -1119,7 +1119,7 @@ def on_ui_tabs():
         sel_none_fil_btn.click  (act_deselect_all       ,  outputs= [coll_flt_res, btn_create_mode, *gr_stack_card_editor])
         sel_mode_btn.click      (act_change_sel_mode    ,  outputs= [sel_mode_btn])
 
-        btn_copy_txt.click        (act_copy_txt, inputs=[wcards_selector], outputs=[disp_notif, wcards_selector]).then(fn= None, inputs=[wcards_selector], _js=js_clipborad)
+        btn_copy_txt.click        (act_copy_txt, inputs=[wcards_selector], outputs=[disp_notif, wcards_selector]).then(fn= None, inputs=[wcards_selector], js=js_clipborad)
         btn_create_mode.click     (enable_creation_mode ,  inputs=  [], outputs= [btn_create_mode, coll_flt_res, *gr_stack_card_editor])
         tx_edit_quick_path.select (act_copy_path        ,  inputs=  [tx_edit_quick_path], outputs= [tx_edit_quick_path, tx_edit_wpath, sel_tag_add])
         btn_use_last.click        (act_reuse_last,  outputs= [tx_edit_quick_path, tx_edit_wpath, sel_tag_add])
