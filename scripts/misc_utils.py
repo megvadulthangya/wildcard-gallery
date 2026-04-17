@@ -188,7 +188,7 @@ class WildcardEntry:
             image_block = f'style="background-image: url({link_img(img_file, self.last_update)});"'
         else:
             image_block = ''
-            text_card_label = f'<div class="wcc_text_card_name">{display_name}</div>'
+            text_card_label = f'<div class="wcc_text_card_name">{html_mod.escape(display_name)}</div>'
             main_html_block = main_html_block.replace("wcc_gal_item", "wcc_gal_item wcc_text_card")
 
         if stack_count >1:
