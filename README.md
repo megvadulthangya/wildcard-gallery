@@ -4,7 +4,7 @@
 
 ## What is this
 
-This Automatic1111 extension primary adds a new extra networks gallery for wildcards along with preview thumbnails and other features for an enhanced wildcards management and user experience.
+This extension is optimized for **Forge** (Gradio 4.40+ compatibility) and adds a new extra networks gallery for wildcards along with preview thumbnails and other features for an enhanced wildcards management and user experience.
 
 ## Installation
 - `git clone` this repo to the `extensions` folder in your Web UI installation, or paste the its link to the `extensions/Install form URL` tab in WebUi
