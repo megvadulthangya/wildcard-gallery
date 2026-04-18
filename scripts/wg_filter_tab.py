@@ -1,10 +1,11 @@
 import gradio as gr
 import math
+import os
 import html as html_mod
 from scripts.misc_utils import  (   load_tags, save_tags, save_tag_config, process_selector,WildcardEntry, TagConfig,update_wildcard_yaml,create_dir_and_file, unpack_wildcard_pack,
                                     collect_stray_previews, export_cards_pack, wildpack_info_scan, html_simple_list,
                                     load_hidden_wildcards, save_hidden_wildcards,
-                                    link_img, IMG_CHANNELS,  WILD_STR, CARDS_FOLDER, EXT_NAME, ICON_LIB)
+                                    link_img, IMG_CHANNELS,  WILD_STR, CARDS_FOLDER, EXT_NAME, ICON_LIB, SHARED_ASSESTS)
 
 
  
@@ -250,7 +251,7 @@ def update_card_mode(html_view:str = "", is_creation:bool = True, is_selection:b
     
     return ( 
              gr.update( value = html_view ) ,
-             gr.update( visible= is_selection or is_edit, icon= link_img( ICON_LIB["copy"],absolute=True)  ), 
+             gr.update( visible= is_selection or is_edit ), 
              gr.update( visible= is_creation, choices=list(wildcards_dict.keys())),
              gr.update( visible= is_creation and last_edit, value=btn_label),
              gr.update( visible= is_creation),
@@ -262,9 +263,9 @@ def update_card_mode(html_view:str = "", is_creation:bool = True, is_selection:b
              gr.update( visible= is_edit),
              gr.update( visible= is_selection and len(selected_entries)<2), 
 
-             gr.update( visible= is_selection or is_edit,   icon= link_img( ICON_LIB["edit"],absolute=True)  ), 
-             gr.update( visible= is_selection or is_edit,   icon= link_img( ICON_LIB["fav"],absolute=True)  ), 
-             gr.update( visible= is_selection or is_edit,   icon= link_img( ICON_LIB["delete"],absolute=True)  ), 
+             gr.update( visible= is_selection or is_edit ), 
+             gr.update( visible= is_selection or is_edit ), 
+             gr.update( visible= is_selection or is_edit ), 
              )
 
 def gr_update_pages(page=0, max_pages=0):
@@ -710,8 +711,101 @@ def act_toggle_edit_mode():
     html_view = update_stack_view(selected_entries ) if selected_entries else ""
     return  update_card_mode( html_view= html_view, is_creation= False , is_selection= not card_edit_mode, is_edit= card_edit_mode)
 
-def act_add_fav ():
-     return add_tag(["fav"],"")
+def act_toggle_fav():
+    """Toggle the 'fav' tag across all selected entries.
+
+    If any of the currently selected entries already has the 'fav' tag, we
+    treat this as an 'un-favourite' gesture and strip it from all selected
+    entries. Otherwise we add it to all of them. This keeps the heart button
+    symmetric and predictable whether the user has one or many cards selected.
+    """
+    if not selected_entries:
+        return add_tag([], "")
+    any_faved = any("fav" in (entry.tags or []) for entry in selected_entries)
+    if any_faved:
+        return remove_tag(["fav"], "")
+    return add_tag(["fav"], "")
+
+def act_delete_selected_cards():
+    """Delete the selected wildcard(s) from disk and from all in-memory indices.
+
+    The click handler is gated by a JS `confirm()` dialog (see
+    `js_confirm_delete`) so this only runs after the user explicitly confirms.
+    We remove the wildcard's .txt file and every associated preview image,
+    drop the entry from wildcards_dict / tags_dict / hidden_wildcards, and
+    refresh the gallery, pagination and results label so the UI stays in sync.
+    """
+    global wildcards_dict
+    global tags_dict
+    global filtered_pile
+    global selected_entries
+    global selected_stack_paths
+    global hidden_wildcards
+    global current_page
+
+    fallback_path = SHARED_ASSESTS.get("card_fallback", "")
+    removed_paths: set[str] = set()
+    for entry in list(selected_entries):
+        # entry.path is a *logical* wildcard name (e.g. "subdir/card"); the
+        # actual file on disk is entry.file_origin. We only delete when the
+        # backing file is a standalone .txt — YAML-sourced wildcards share
+        # their file with siblings, so rm-ing the yaml would nuke unrelated
+        # entries. The user can still hide those via Visibility Mode.
+        file_origin = getattr(entry, "file_origin", "") or ""
+        if not file_origin.lower().endswith(".txt"):
+            print(f"[{EXT_NAME}] Refusing to delete {entry.path!r}: only .txt-backed wildcards can be deleted (origin={file_origin!r}). Use Visibility Mode to hide instead.")
+            continue
+        if not os.path.isfile(file_origin):
+            print(f"[{EXT_NAME}] Skipping {entry.path!r}: file_origin missing on disk ({file_origin!r}).")
+            continue
+
+        # Drop every preview image except the shared fallback asset —
+        # preload_previews() seeds empty channels with SHARED_ASSESTS["card_fallback"]
+        # which is reused across the whole gallery.
+        for preview_path in list((entry.thumbnails or {}).values()):
+            if not preview_path or preview_path == fallback_path:
+                continue
+            if not os.path.isfile(preview_path):
+                continue
+            try:
+                os.remove(preview_path)
+            except OSError as e:
+                print(f"[{EXT_NAME}] Failed to delete preview {preview_path}: {e}")
+
+        try:
+            os.remove(file_origin)
+        except OSError as e:
+            print(f"[{EXT_NAME}] Failed to delete wildcard {file_origin}: {e}")
+            continue
+
+        removed_paths.add(entry.path)
+        wildcards_dict.pop(entry.path, None)
+        for paths_list in tags_dict.values():
+            if entry.path in paths_list:
+                paths_list.remove(entry.path)
+
+    if removed_paths:
+        save_tags(tags_dict)
+        newly_unhidden = removed_paths & hidden_wildcards
+        if newly_unhidden:
+            hidden_wildcards = hidden_wildcards - newly_unhidden
+            save_hidden_wildcards(hidden_wildcards)
+        filtered_pile = [e for e in filtered_pile if e.path not in removed_paths]
+
+    selected_entries = []
+    selected_stack_paths = []
+    page_count = _current_page_count()
+    if current_page > page_count:
+        current_page = page_count
+    samples_list = update_gallery_view(update_stacks=True)
+    prefix = "🙈 Hidden Wildcards" if show_hidden_only else "🎴 Filter Results"
+    return (
+        gr.update(visible=bool(samples_list), samples=samples_list),
+        *update_card_mode(is_creation=False, is_selection=False, is_edit=False),
+        gr.update(value=_hidden_count_html()),
+        *gr_update_pages(current_page, page_count),
+        gr.update(value=_filter_stat_text(prefix)),
+    )
 
 
 def add_tag(sel_tag_add:list[str], tx_sel_tag_add:str):
@@ -747,7 +841,10 @@ def remove_tag(sel_tag_add:list[str], tx_sel_tag_add:str):
     for entry in selected_entries:
         for tag in sel_tag_add:
             traget_tag_list = tags_dict.get(tag)
-            if traget_tag_list:
+            # Guard membership: act_toggle_fav strips 'fav' from every selected
+            # entry even when only some of them carry it, so a naive .remove()
+            # would raise ValueError for the ones whose path isn't in the list.
+            if traget_tag_list and entry.path in traget_tag_list:
                 traget_tag_list.remove(entry.path)
 
     if save_tags(tags_dict):
@@ -1120,10 +1217,10 @@ def on_ui_tabs():
             with gr.Column(elem_id="wcc_sel_view") :
                 disp_card_stack     = gr.HTML("")
                 with gr.Row(elem_id="wcc_filt_send_sec"):
-                    btn_copy_txt    =  gr.Button("", visible=False, elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_edit_card   =  gr.Button("", visible=False, elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_fav_card    =  gr.Button("", visible=False, elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_delete_card =  gr.Button("", visible=False,  elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_copy_txt    = gr.Button("", visible=False, icon=ICON_LIB["copy"],   elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_edit_card   = gr.Button("", visible=False, icon=ICON_LIB["edit"],   elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_fav_card    = gr.Button("", visible=False, icon=ICON_LIB["fav"],    elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_delete_card = gr.Button("", visible=False, icon=ICON_LIB["delete"], elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
 
                 
                 with gr.Accordion("Details", open=True, visible= False) as acc_aux_details:
@@ -1273,6 +1370,17 @@ def on_ui_tabs():
             }
         '''
 
+        # Confirm dialog gate for wildcard deletion. If the user cancels, we
+        # throw to abort the event chain so act_delete_selected_cards never runs.
+        js_confirm_delete = '''
+            () => {
+                if (!confirm("Do you really want to delete the selected wildcard(s)?\\nThis will permanently remove the .txt file and any preview images from disk and cannot be undone.")) {
+                    throw new Error("delete cancelled");
+                }
+                return [];
+            }
+        '''
+
         # Visibility-mode-aware variant: skip prompt insertion while visibility mode is on
         js_insert_prompt_conditional = '''
             (wildcard_str, vis_mode) => {
@@ -1326,7 +1434,8 @@ def on_ui_tabs():
 
         
         btn_edit_card.click     (act_toggle_edit_mode , outputs= [*gr_stack_card_editor])
-        btn_fav_card.click      (act_add_fav    ,  outputs= [sel_tag_add, tx_sel_tag_add, coll_flt_res])
+        btn_fav_card.click      (act_toggle_fav ,  outputs= [sel_tag_add, tx_sel_tag_add, coll_flt_res])
+        btn_delete_card.click   (act_delete_selected_cards, outputs= [coll_flt_res, *gr_stack_card_editor, disp_hidden_count, *gr_stack_page_selector, disp_results], js= js_confirm_delete)
         
 
         btn_tag_add.click       (add_tag    , inputs= [sel_tag_add, tx_sel_tag_add], outputs= [sel_tag_add, tx_sel_tag_add, coll_flt_res])
