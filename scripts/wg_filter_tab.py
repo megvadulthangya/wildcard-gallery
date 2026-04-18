@@ -294,18 +294,18 @@ def _rebuild_filtered_pile_from_all():
         if not entry.is_preloaded:
             entry.preload_previews()
 
-def act_toggle_visibility_mode(is_active):
+def act_toggle_visibility_mode():
     global visibility_mode
     global show_hidden_only
-    visibility_mode = bool(is_active)
+    visibility_mode = not visibility_mode
     if not visibility_mode:
-        # Leaving visibility mode must also drop the "show hidden only" filter,
-        # otherwise its controls stay hidden but the flag continues to shape
-        # subsequent Run Filter results.
         show_hidden_only = False
+    label = "Visibility Mode [ON]" if visibility_mode else "Visibility Mode"
     return (
+        gr.update(value=label),
         gr.update(visible=visibility_mode),
         gr.update(value=_hidden_count_html()),
+        visibility_mode,
     )
 
 def act_hide_selected():
@@ -1124,7 +1124,8 @@ def on_ui_tabs():
                             sel_all_fil_btn  = gr.Button("ALL", elem_classes="wcc_status_btn")
                             sel_mode_btn  = gr.Button("Select Mode [Multi]", elem_classes="wcc_status_btn")
                             btn_create_mode     = gr.Button("➕ Create New Card", visible=True, elem_classes="wcc_status_btn")
-                            chk_visibility_mode = gr.Checkbox(label="Visibility Mode", value=False, elem_classes="wcc_status_btn")
+                            btn_visibility_mode = gr.Button("Visibility Mode", elem_classes="wcc_status_btn")
+                state_vis_mode = gr.State(False)
 
                 wcards_selector = gr.Textbox(visible= False, interactive=False)
                 # Gradio 4.40 compatibility: use string samples for HTML component, type="index"
@@ -1272,7 +1273,7 @@ def on_ui_tabs():
         sel_filter_prop.change  (act_filter_mod_change , inputs= [sel_filter_prop], outputs= gr_stack_filter_pannel )
         btn_run_filter.click    (act_run_filter        , inputs= [sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input], outputs= [coll_flt_res, *gr_stack_page_selector, disp_results, btn_create_mode, *gr_stack_card_editor])
         # Update select event to include insertion into prompt
-        coll_flt_res.select     (act_select_entry       , inputs= [coll_flt_res], outputs= [coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector, chk_visibility_mode], js=js_insert_prompt_conditional)
+        coll_flt_res.select     (act_select_entry       , inputs= [coll_flt_res], outputs= [coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector, state_vis_mode], js=js_insert_prompt_conditional)
         
         btn_pg_jump.click       (act_paginate       ,  inputs=  [tx_pg_jump], outputs= [coll_flt_res, *gr_stack_page_selector])
         btn_pg_next.click       (act_paginate_next  ,  outputs= [coll_flt_res, *gr_stack_page_selector])
@@ -1320,7 +1321,7 @@ def on_ui_tabs():
         sel_mgr_tag_groups.select   (act_list_tagroup, inputs= [sel_mgr_tag_groups],  outputs=[tx_taggroup_name, sel_member_tags, opt_mask_group, picker_sec_color, btn_save_tag_group])
         btn_save_tag_group.click    (act_save_tagroup, inputs=[tx_taggroup_name, sel_member_tags, opt_mask_group, picker_sec_color], outputs=[opt_tags_groups, sel_mgr_tag_groups, tx_taggroup_name, sel_member_tags, opt_mask_group,  picker_sec_color, btn_save_tag_group] )
 
-        chk_visibility_mode.change  (act_toggle_visibility_mode, inputs=[chk_visibility_mode], outputs=[visibility_actions_row, disp_hidden_count])
+        btn_visibility_mode.click   (act_toggle_visibility_mode, outputs=[btn_visibility_mode, visibility_actions_row, disp_hidden_count, state_vis_mode])
         btn_hide_selected.click     (act_hide_selected,   outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor])
         btn_unhide_selected.click   (act_unhide_selected, outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor])
         btn_show_hidden.click       (act_show_hidden_only,  outputs=[coll_flt_res, disp_hidden_count, *gr_stack_page_selector, disp_results])
