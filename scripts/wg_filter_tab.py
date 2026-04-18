@@ -1120,10 +1120,10 @@ def on_ui_tabs():
             with gr.Column(elem_id="wcc_sel_view") :
                 disp_card_stack     = gr.HTML("")
                 with gr.Row(elem_id="wcc_filt_send_sec"):
-                    btn_copy_txt    =  gr.Button("", visible=False, elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_edit_card   =  gr.Button("", visible=False, elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_fav_card    =  gr.Button("", visible=False, elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_delete_card =  gr.Button("", visible=False,  elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_copy_txt    = gr.Button("", visible=False, icon=link_img(ICON_LIB["copy"],   absolute=True), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_edit_card   = gr.Button("", visible=False, icon=link_img(ICON_LIB["edit"],   absolute=True), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_fav_card    = gr.Button("", visible=False, icon=link_img(ICON_LIB["fav"],    absolute=True), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_delete_card = gr.Button("", visible=False, icon=link_img(ICON_LIB["delete"], absolute=True), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
 
                 
                 with gr.Accordion("Details", open=True, visible= False) as acc_aux_details:
