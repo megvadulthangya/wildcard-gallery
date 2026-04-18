@@ -164,13 +164,21 @@ class WildcardEntry:
         config_block = r'style="color: ##tx_col##;background: ##bg_col##;"'
         tag_html_block =r'<div class="wcc_gal_tag" ##stl## >###</div>'
         tags_stack_block =r'<div class="wcc_tag_stack">###</div>'
+        # Inline heart SVG rendered in place of the literal "fav" tag text so
+        # the favourite marker reads as an icon in the selected card's tag row.
+        fav_heart_svg = (
+            r'<svg class="wcc_fav_heart" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="favourite">'
+            r'<path d="M2 9.1371C2 14 6.01943 16.5914 8.96173 18.9109C10 19.7294 11 20.5 12 20.5C13 20.5 14 19.7294 15.0383 18.9109C17.9806 16.5914 22 14 22 9.1371C22 4.27416 16.4998 0.825464 12 5.50063C7.50016 0.825464 2 4.27416 2 9.1371Z" fill="currentColor"/>'
+            r'</svg>'
+        )
         tags_stack = ""
         for tag in self.tags:
             config = config_dict.get(tag)
             if config and ((config.masked and hide_masked) or (config.config_name in masked_groups)):
                 continue
             tag_cfg = config_block.replace("##tx_col##",config.tx_color).replace("##bg_col##",config.bg_color) if config else ""
-            tags_stack+=tag_html_block.replace("##stl##",tag_cfg).replace("###",html_mod.escape(tag))
+            tag_body = fav_heart_svg if tag == "fav" else html_mod.escape(tag)
+            tags_stack+=tag_html_block.replace("##stl##",tag_cfg).replace("###",tag_body)
         
         
         return tags_stack_block.replace("###",tags_stack)
