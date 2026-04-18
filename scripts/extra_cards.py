@@ -6,8 +6,8 @@ from scripts.misc_utils import (
     collect_Wildcards,clean_residue,
     create_dir_and_file,fetch_img, get_safe_name_2, get_base_url,
     WILDCARDS_FOLDER, CARDS_FOLDER, RES_FOLDER, WILD_STR,IMG_CHANNELS,EXT_NAME,
-    WildcardEntry, load_tags, link_img, strip_trailing_number
-    
+    WildcardEntry, load_tags, link_img, strip_trailing_number,
+    load_hidden_wildcards,
 )
 from scripts.wg_filter_tab import on_ui_tabs, init_filter_module
 from scripts.preview_processing import   txt2img_prompting_process, txt2img_preview_process, normal_process
@@ -86,9 +86,12 @@ class WildcardsCards(ExtraNetworksPage):
             },
         }
 
-    def list_items(self): 
+    def list_items(self):
+        hidden = load_hidden_wildcards()
         channel = getattr(shared.opts, "wcc_preview_channel", "default").strip()
         for index, (wpath, wentry) in enumerate(self.cards.items()):
+            if wpath in hidden:
+                continue
             if not wentry.is_preloaded:
                 wentry.preload_previews()
             preview_file = wentry.thumbnails.get(channel, "")
@@ -107,28 +110,6 @@ def on_ui_settings():
             WILDCARDS_FOLDER,
             "Wildcard Directory",
             gr.Textbox,
-            lambda: {"interactive": True, "show_label" : True},
-            section=section,
-        ),
-    )
-
-    shared.opts.add_option(
-        key="wcc_wildcards_whitelist",
-        info=shared.OptionInfo(
-            "\n".join(getattr(shared.opts, "wcc_wildcards_whitelist","").split("\n")),
-            "Whitelisted Wildcards",
-            gr.Code,
-            lambda: {"interactive": True, "show_label" : True},
-            section=section,
-        ),
-    )
-
-    shared.opts.add_option(
-        key="wcc_wildcards_blacklist",
-        info=shared.OptionInfo(
-            "\n".join(getattr(shared.opts, "wcc_wildcards_blacklist","").split("\n")),
-            "Blacklistd Wildcards",
-            gr.Code,
             lambda: {"interactive": True, "show_label" : True},
             section=section,
         ),

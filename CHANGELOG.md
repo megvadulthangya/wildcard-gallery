@@ -1,3 +1,11 @@
+## [Unreleased]
+
+### Added
+- **Visibility Manager:** New "Visibility Mode" toggle on the Wildcards Filter tab adds Hide / Unhide / Show Hidden Only / Show All (excl. hidden) actions. Hidden wildcards are persisted to `metadata/hidden_wildcards.json` and are also excluded from the txt2img/img2img *Wildcards* Extra Networks tab. While Visibility Mode is active, clicking a card no longer inserts it into the prompt so bulk hide/unhide selection is safe.
+
+### Removed
+- **Dead whitelist/blacklist code:** Removed the obsolete `wcc_wildcards_whitelist` and `wcc_wildcards_blacklist` settings page options and the associated dead-code path in `unpack_wildcard_pack()` that wrote imported YAML names back into the whitelist.
+
 ## [2.1.0] - 2026-03-28
 
 ### Added

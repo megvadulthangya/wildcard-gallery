@@ -3,6 +3,7 @@ import math
 import html as html_mod
 from scripts.misc_utils import  (   load_tags, save_tags, save_tag_config, process_selector,WildcardEntry, TagConfig,update_wildcard_yaml,create_dir_and_file, unpack_wildcard_pack,
                                     collect_stray_previews, export_cards_pack, wildpack_info_scan, html_simple_list,
+                                    load_hidden_wildcards, save_hidden_wildcards,
                                     link_img, IMG_CHANNELS,  WILD_STR, CARDS_FOLDER, EXT_NAME, ICON_LIB)
 
 
@@ -33,6 +34,10 @@ multi_selection_mode = True
 card_edit_mode = False 
 hidden_tag_groups = []
 
+hidden_wildcards: set = set()       # Set of hidden wildcard paths
+visibility_mode: bool = False       # Whether the gallery is in visibility management mode
+show_hidden_only: bool = False      # Whether to show only hidden wildcards
+
 current_img_channel = IMG_CHANNELS[0]
 current_stack_level = 0
 current_page:int = 1
@@ -62,6 +67,9 @@ def init_filter_module(built_wildcards_dict:dict[str,WildcardEntry], built_tags_
     
     wildcards_dict = built_wildcards_dict
     tags_dict   = built_tags_dict
+
+    global hidden_wildcards
+    hidden_wildcards = load_hidden_wildcards()
 
     tag_config_list = TagConfig.load_from_json()
     build_tag_config_dict(tag_config_list)
@@ -269,6 +277,127 @@ def gr_update_pages(page=0, max_pages=0):
             gr.update( visible= is_active, interactive= prev_exist),
             gr.update( visible= is_active, interactive= next_exist),
             )
+#-------------------------|Visibility Manager helpers|--------------------
+
+def _hidden_count_html() -> str:
+    return f"🙈 {len(hidden_wildcards)} hidden wildcards"
+
+def _rebuild_filtered_pile_from_all():
+    """Rebuilds filtered_pile from wildcards_dict using the current visibility filter."""
+    global filtered_pile
+    filtered_pile = [
+        entry for wpath, entry in wildcards_dict.items()
+        if (show_hidden_only and wpath in hidden_wildcards)
+        or (not show_hidden_only and wpath not in hidden_wildcards)
+    ]
+    for entry in filtered_pile:
+        if not entry.is_preloaded:
+            entry.preload_previews()
+
+def act_toggle_visibility_mode(is_active):
+    global visibility_mode
+    visibility_mode = bool(is_active)
+    return (
+        gr.update(visible=visibility_mode),
+        gr.update(value=_hidden_count_html()),
+    )
+
+def act_hide_selected():
+    global hidden_wildcards
+    global filtered_pile
+    global selected_entries
+    global selected_stack_paths
+
+    paths_to_hide = {entry.path for entry in selected_entries}
+    if paths_to_hide:
+        hidden_wildcards = hidden_wildcards | paths_to_hide
+        save_hidden_wildcards(hidden_wildcards)
+        if not show_hidden_only:
+            filtered_pile = [e for e in filtered_pile if e.path not in paths_to_hide]
+
+    selected_entries = []
+    selected_stack_paths = []
+    samples_list = update_gallery_view(update_stacks=True)
+    return (
+        gr.update(visible=bool(samples_list), samples=samples_list),
+        gr.update(value=_hidden_count_html()),
+        gr.update(visible=True),
+        *update_card_mode(is_creation=False, is_selection=False, is_edit=False),
+    )
+
+def act_unhide_selected():
+    global hidden_wildcards
+    global filtered_pile
+    global selected_entries
+    global selected_stack_paths
+
+    paths_to_unhide = {entry.path for entry in selected_entries}
+    if paths_to_unhide:
+        hidden_wildcards = hidden_wildcards - paths_to_unhide
+        save_hidden_wildcards(hidden_wildcards)
+        if show_hidden_only:
+            filtered_pile = [e for e in filtered_pile if e.path not in paths_to_unhide]
+
+    selected_entries = []
+    selected_stack_paths = []
+    samples_list = update_gallery_view(update_stacks=True)
+    return (
+        gr.update(visible=bool(samples_list), samples=samples_list),
+        gr.update(value=_hidden_count_html()),
+        gr.update(visible=True),
+        *update_card_mode(is_creation=False, is_selection=False, is_edit=False),
+    )
+
+def act_show_hidden_only():
+    global show_hidden_only
+    global selected_entries
+    global selected_stack_paths
+    global current_page
+    global filtered_stacks
+
+    show_hidden_only = True
+    selected_entries = []
+    selected_stack_paths = []
+    current_page = 1
+    filtered_stacks = {}
+    _rebuild_filtered_pile_from_all()
+
+    samples_list = update_gallery_view(update_stacks=True)
+    page_count = max(math.ceil(len(filtered_pile) / ITEMS_CAP), 1) if current_stack_level <= 0 else max(math.ceil(len(filtered_stacks) / ITEMS_CAP), 1)
+    filter_stat_tx = f"🙈 Hidden Wildcards: ({len(filtered_pile)}) Wildcards"
+    filter_stat_tx += f"  /  ({len(filtered_stacks)}) Packs at stacking lvl [{current_stack_level}]" if current_stack_level > 0 else ""
+    return (
+        gr.update(visible=bool(samples_list), samples=samples_list),
+        gr.update(value=_hidden_count_html()),
+        *gr_update_pages(current_page, page_count),
+        gr.update(value=filter_stat_tx),
+    )
+
+def act_show_all_visible():
+    global show_hidden_only
+    global selected_entries
+    global selected_stack_paths
+    global current_page
+    global filtered_stacks
+
+    show_hidden_only = False
+    selected_entries = []
+    selected_stack_paths = []
+    current_page = 1
+    filtered_stacks = {}
+    _rebuild_filtered_pile_from_all()
+
+    samples_list = update_gallery_view(update_stacks=True)
+    page_count = max(math.ceil(len(filtered_pile) / ITEMS_CAP), 1) if current_stack_level <= 0 else max(math.ceil(len(filtered_stacks) / ITEMS_CAP), 1)
+    filter_stat_tx = f"🎴 Filter Results: ({len(filtered_pile)}) Wildcards"
+    filter_stat_tx += f"  /  ({len(filtered_stacks)}) Packs at stacking lvl [{current_stack_level}]" if current_stack_level > 0 else ""
+    return (
+        gr.update(visible=bool(samples_list), samples=samples_list),
+        gr.update(value=_hidden_count_html()),
+        *gr_update_pages(current_page, page_count),
+        gr.update(value=filter_stat_tx),
+    )
+
 #-------------------------|Gradio Events lvl|-----------------------------
 
 
@@ -365,6 +494,11 @@ def act_run_filter (sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_in
     
     if filtered_list:
         for wpath in filtered_list:
+            # Skip hidden wildcards unless we're in "show hidden only" mode
+            if not show_hidden_only and wpath in hidden_wildcards:
+                continue
+            if show_hidden_only and wpath not in hidden_wildcards:
+                continue
             entry = wildcards_dict.get(wpath)
             if entry: 
                 if not entry.is_preloaded:
@@ -984,10 +1118,17 @@ def on_ui_tabs():
                             sel_all_fil_btn  = gr.Button("ALL", elem_classes="wcc_status_btn")
                             sel_mode_btn  = gr.Button("Select Mode [Multi]", elem_classes="wcc_status_btn")
                             btn_create_mode     = gr.Button("➕ Create New Card", visible=True, elem_classes="wcc_status_btn")
-                            
+                            chk_visibility_mode = gr.Checkbox(label="Visibility Mode", value=False, elem_classes="wcc_status_btn")
+
                 wcards_selector = gr.Textbox(visible= False, interactive=False)
                 # Gradio 4.40 compatibility: use string samples for HTML component, type="index"
                 coll_flt_res = gr.Dataset(visible= False,  label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples= [["<div></div>"] for _ in range(ITEMS_CAP)], samples_per_page=ITEMS_CAP+1 , type="index")
+                with gr.Row(visible=False) as visibility_actions_row:
+                    btn_hide_selected   = gr.Button("Hide Selected", variant="stop", elem_classes="wcc_status_btn")
+                    btn_unhide_selected = gr.Button("Unhide Selected", variant="primary", elem_classes="wcc_status_btn")
+                    btn_show_hidden     = gr.Button("Show Hidden Only", elem_classes="wcc_status_btn")
+                    btn_show_all        = gr.Button("Show All (excl. hidden)", elem_classes="wcc_status_btn")
+                    disp_hidden_count   = gr.HTML(value="")
                 with gr.Row( elem_id= "wcc_pag_div") :
                     btn_pg_prev = gr.Button("\u25C0", visible= False)
                     tx_pg_jump = gr.Textbox(label="page", visible= False)
@@ -1097,6 +1238,26 @@ def on_ui_tabs():
             }
         '''
 
+        # Visibility-mode-aware variant: skip prompt insertion while visibility mode is on
+        js_insert_prompt_conditional = '''
+            (wildcard_str, vis_mode) => {
+                if (vis_mode) return;
+                var prompt_textarea = gradioApp().querySelector('#txt2img_prompt');
+                if (prompt_textarea) {
+                    var current_prompt = prompt_textarea.value;
+                    var new_prompt = current_prompt + " " + wildcard_str;
+                    prompt_textarea.value = new_prompt;
+                    prompt_textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                    console.log("Inserted: " + wildcard_str);
+                } else {
+                    console.log("Prompt textarea not found");
+                }
+                var notifContainer = document.getElementById("wcc_notif_msg");
+                if (notifContainer) notifContainer.classList.add("wcc_anim");
+                setTimeout(() => {  if (notifContainer)  notifContainer.classList.remove("wcc_anim");    }, 2100);
+            }
+        '''
+
      
         gr_stack_page_selector  = [btn_pg_jump, tx_pg_jump, btn_pg_prev, btn_pg_next]
         gr_stack_filter_pannel  = [sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input, btn_run_filter]
@@ -1105,7 +1266,7 @@ def on_ui_tabs():
         sel_filter_prop.change  (act_filter_mod_change , inputs= [sel_filter_prop], outputs= gr_stack_filter_pannel )
         btn_run_filter.click    (act_run_filter        , inputs= [sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input], outputs= [coll_flt_res, *gr_stack_page_selector, disp_results, btn_create_mode, *gr_stack_card_editor])
         # Update select event to include insertion into prompt
-        coll_flt_res.select     (act_select_entry       , inputs= [coll_flt_res], outputs= [coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector], js=js_insert_prompt)
+        coll_flt_res.select     (act_select_entry       , inputs= [coll_flt_res], outputs= [coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector, chk_visibility_mode], js=js_insert_prompt_conditional)
         
         btn_pg_jump.click       (act_paginate       ,  inputs=  [tx_pg_jump], outputs= [coll_flt_res, *gr_stack_page_selector])
         btn_pg_next.click       (act_paginate_next  ,  outputs= [coll_flt_res, *gr_stack_page_selector])
@@ -1152,5 +1313,11 @@ def on_ui_tabs():
 
         sel_mgr_tag_groups.select   (act_list_tagroup, inputs= [sel_mgr_tag_groups],  outputs=[tx_taggroup_name, sel_member_tags, opt_mask_group, picker_sec_color, btn_save_tag_group])
         btn_save_tag_group.click    (act_save_tagroup, inputs=[tx_taggroup_name, sel_member_tags, opt_mask_group, picker_sec_color], outputs=[opt_tags_groups, sel_mgr_tag_groups, tx_taggroup_name, sel_member_tags, opt_mask_group,  picker_sec_color, btn_save_tag_group] )
-    
+
+        chk_visibility_mode.change  (act_toggle_visibility_mode, inputs=[chk_visibility_mode], outputs=[visibility_actions_row, disp_hidden_count])
+        btn_hide_selected.click     (act_hide_selected,   outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor])
+        btn_unhide_selected.click   (act_unhide_selected, outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor])
+        btn_show_hidden.click       (act_show_hidden_only,  outputs=[coll_flt_res, disp_hidden_count, *gr_stack_page_selector, disp_results])
+        btn_show_all.click          (act_show_all_visible,  outputs=[coll_flt_res, disp_hidden_count, *gr_stack_page_selector, disp_results])
+
     return ((filter_tab, TAB_NAME, f"wildcards_filter_tab"),)
