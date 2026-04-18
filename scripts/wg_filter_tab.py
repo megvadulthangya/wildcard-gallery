@@ -296,7 +296,13 @@ def _rebuild_filtered_pile_from_all():
 
 def act_toggle_visibility_mode(is_active):
     global visibility_mode
+    global show_hidden_only
     visibility_mode = bool(is_active)
+    if not visibility_mode:
+        # Leaving visibility mode must also drop the "show hidden only" filter,
+        # otherwise its controls stay hidden but the flag continues to shape
+        # subsequent Run Filter results.
+        show_hidden_only = False
     return (
         gr.update(visible=visibility_mode),
         gr.update(value=_hidden_count_html()),
