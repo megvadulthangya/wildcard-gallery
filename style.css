@@ -393,6 +393,17 @@
     height: 1em;
     vertical-align: -0.125em;
     color: #e0245e;
+    /* The heart lives inside .wcc_gal_item so the generic `.wcc_gal_item svg`
+       rule below would make it invisible, absolutely positioned at the top
+       right corner, and override the fill via !important. Neutralise those. */
+    fill: #e0245e !important;
+    visibility: visible;
+    position: static;
+    top: auto;
+    left: auto;
+    background: none;
+    margin-left: 0;
+    border-radius: 0;
 }
 .wcc_gal_item svg{
   fill: var(--button-secondary-text-color)!important;

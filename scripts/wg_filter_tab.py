@@ -5,7 +5,7 @@ import html as html_mod
 from scripts.misc_utils import  (   load_tags, save_tags, save_tag_config, process_selector,WildcardEntry, TagConfig,update_wildcard_yaml,create_dir_and_file, unpack_wildcard_pack,
                                     collect_stray_previews, export_cards_pack, wildpack_info_scan, html_simple_list,
                                     load_hidden_wildcards, save_hidden_wildcards,
-                                    link_img, IMG_CHANNELS,  WILD_STR, CARDS_FOLDER, EXT_NAME, ICON_LIB)
+                                    link_img, IMG_CHANNELS,  WILD_STR, CARDS_FOLDER, EXT_NAME, ICON_LIB, SHARED_ASSESTS)
 
 
  
@@ -743,20 +743,41 @@ def act_delete_selected_cards():
     global hidden_wildcards
     global current_page
 
+    fallback_path = SHARED_ASSESTS.get("card_fallback", "")
     removed_paths: set[str] = set()
     for entry in list(selected_entries):
+        # entry.path is a *logical* wildcard name (e.g. "subdir/card"); the
+        # actual file on disk is entry.file_origin. We only delete when the
+        # backing file is a standalone .txt — YAML-sourced wildcards share
+        # their file with siblings, so rm-ing the yaml would nuke unrelated
+        # entries. The user can still hide those via Visibility Mode.
+        file_origin = getattr(entry, "file_origin", "") or ""
+        if not file_origin.lower().endswith(".txt"):
+            print(f"[{EXT_NAME}] Refusing to delete {entry.path!r}: only .txt-backed wildcards can be deleted (origin={file_origin!r}). Use Visibility Mode to hide instead.")
+            continue
+        if not os.path.isfile(file_origin):
+            print(f"[{EXT_NAME}] Skipping {entry.path!r}: file_origin missing on disk ({file_origin!r}).")
+            continue
+
+        # Drop every preview image except the shared fallback asset —
+        # preload_previews() seeds empty channels with SHARED_ASSESTS["card_fallback"]
+        # which is reused across the whole gallery.
         for preview_path in list((entry.thumbnails or {}).values()):
-            if preview_path and os.path.isfile(preview_path):
-                try:
-                    os.remove(preview_path)
-                except OSError as e:
-                    print(f"[{EXT_NAME}] Failed to delete preview {preview_path}: {e}")
-        if entry.path and os.path.isfile(entry.path):
-            try:
-                os.remove(entry.path)
-            except OSError as e:
-                print(f"[{EXT_NAME}] Failed to delete wildcard {entry.path}: {e}")
+            if not preview_path or preview_path == fallback_path:
                 continue
+            if not os.path.isfile(preview_path):
+                continue
+            try:
+                os.remove(preview_path)
+            except OSError as e:
+                print(f"[{EXT_NAME}] Failed to delete preview {preview_path}: {e}")
+
+        try:
+            os.remove(file_origin)
+        except OSError as e:
+            print(f"[{EXT_NAME}] Failed to delete wildcard {file_origin}: {e}")
+            continue
+
         removed_paths.add(entry.path)
         wildcards_dict.pop(entry.path, None)
         for paths_list in tags_dict.values():
