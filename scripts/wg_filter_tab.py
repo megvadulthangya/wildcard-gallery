@@ -294,65 +294,99 @@ def _rebuild_filtered_pile_from_all():
         if not entry.is_preloaded:
             entry.preload_previews()
 
+def _current_page_count() -> int:
+    source_len = len(filtered_stacks) if current_stack_level > 0 else len(filtered_pile)
+    return max(math.ceil(source_len / ITEMS_CAP), 1)
+
+def _filter_stat_text(prefix: str = "🎴 Filter Results") -> str:
+    text = f"{prefix}: ({len(filtered_pile)}) Wildcards"
+    if current_stack_level > 0:
+        text += f"  /  ({len(filtered_stacks)}) Packs at stacking lvl [{current_stack_level}]"
+    return text
+
 def act_toggle_visibility_mode():
     global visibility_mode
     global show_hidden_only
+    global selected_entries
+    global selected_stack_paths
+    global current_page
+    global filtered_stacks
+
+    was_show_hidden_only = show_hidden_only
     visibility_mode = not visibility_mode
-    if not visibility_mode:
-        show_hidden_only = False
     label = "Visibility Mode [ON]" if visibility_mode else "Visibility Mode"
+
+    if not visibility_mode and was_show_hidden_only:
+        # Leaving visibility mode from the hidden-only view: rebuild the gallery
+        # so the user lands back on the normal (visible) set; otherwise the
+        # hidden cards stay on screen with no visible control to restore them.
+        show_hidden_only = False
+        selected_entries = []
+        selected_stack_paths = []
+        current_page = 1
+        filtered_stacks = {}
+        _rebuild_filtered_pile_from_all()
+        samples_list = update_gallery_view(update_stacks=True)
+        gallery_update = gr.update(visible=bool(samples_list), samples=samples_list)
+        pages_updates = gr_update_pages(current_page, _current_page_count())
+        results_update = gr.update(value=_filter_stat_text())
+    else:
+        gallery_update = gr.update()
+        pages_updates = (gr.update(), gr.update(), gr.update(), gr.update())
+        results_update = gr.update()
+
     return (
         gr.update(value=label),
         gr.update(visible=visibility_mode),
         gr.update(value=_hidden_count_html()),
         visibility_mode,
+        gallery_update,
+        *pages_updates,
+        results_update,
+    )
+
+def _apply_visibility_change(paths, hide: bool):
+    """Shared logic for hide/unhide: mutate hidden set, prune filtered_pile, persist."""
+    global hidden_wildcards
+    global filtered_pile
+    global selected_entries
+    global selected_stack_paths
+    global current_page
+
+    if paths:
+        if hide:
+            hidden_wildcards = hidden_wildcards | paths
+            drop_from_pile = not show_hidden_only
+        else:
+            hidden_wildcards = hidden_wildcards - paths
+            drop_from_pile = show_hidden_only
+        save_hidden_wildcards(hidden_wildcards)
+        if drop_from_pile:
+            filtered_pile = [e for e in filtered_pile if e.path not in paths]
+
+    selected_entries = []
+    selected_stack_paths = []
+    page_count = _current_page_count()
+    if current_page > page_count:
+        current_page = page_count
+    samples_list = update_gallery_view(update_stacks=True)
+    prefix = "🙈 Hidden Wildcards" if show_hidden_only else "🎴 Filter Results"
+    return (
+        gr.update(visible=bool(samples_list), samples=samples_list),
+        gr.update(value=_hidden_count_html()),
+        gr.update(visible=True),
+        *update_card_mode(is_creation=False, is_selection=False, is_edit=False),
+        *gr_update_pages(current_page, page_count),
+        gr.update(value=_filter_stat_text(prefix)),
     )
 
 def act_hide_selected():
-    global hidden_wildcards
-    global filtered_pile
-    global selected_entries
-    global selected_stack_paths
-
     paths_to_hide = {entry.path for entry in selected_entries}
-    if paths_to_hide:
-        hidden_wildcards = hidden_wildcards | paths_to_hide
-        save_hidden_wildcards(hidden_wildcards)
-        if not show_hidden_only:
-            filtered_pile = [e for e in filtered_pile if e.path not in paths_to_hide]
-
-    selected_entries = []
-    selected_stack_paths = []
-    samples_list = update_gallery_view(update_stacks=True)
-    return (
-        gr.update(visible=bool(samples_list), samples=samples_list),
-        gr.update(value=_hidden_count_html()),
-        gr.update(visible=True),
-        *update_card_mode(is_creation=False, is_selection=False, is_edit=False),
-    )
+    return _apply_visibility_change(paths_to_hide, hide=True)
 
 def act_unhide_selected():
-    global hidden_wildcards
-    global filtered_pile
-    global selected_entries
-    global selected_stack_paths
-
     paths_to_unhide = {entry.path for entry in selected_entries}
-    if paths_to_unhide:
-        hidden_wildcards = hidden_wildcards - paths_to_unhide
-        save_hidden_wildcards(hidden_wildcards)
-        if show_hidden_only:
-            filtered_pile = [e for e in filtered_pile if e.path not in paths_to_unhide]
-
-    selected_entries = []
-    selected_stack_paths = []
-    samples_list = update_gallery_view(update_stacks=True)
-    return (
-        gr.update(visible=bool(samples_list), samples=samples_list),
-        gr.update(value=_hidden_count_html()),
-        gr.update(visible=True),
-        *update_card_mode(is_creation=False, is_selection=False, is_edit=False),
-    )
+    return _apply_visibility_change(paths_to_unhide, hide=False)
 
 def act_show_hidden_only():
     global show_hidden_only
@@ -369,14 +403,11 @@ def act_show_hidden_only():
     _rebuild_filtered_pile_from_all()
 
     samples_list = update_gallery_view(update_stacks=True)
-    page_count = max(math.ceil(len(filtered_pile) / ITEMS_CAP), 1) if current_stack_level <= 0 else max(math.ceil(len(filtered_stacks) / ITEMS_CAP), 1)
-    filter_stat_tx = f"🙈 Hidden Wildcards: ({len(filtered_pile)}) Wildcards"
-    filter_stat_tx += f"  /  ({len(filtered_stacks)}) Packs at stacking lvl [{current_stack_level}]" if current_stack_level > 0 else ""
     return (
         gr.update(visible=bool(samples_list), samples=samples_list),
         gr.update(value=_hidden_count_html()),
-        *gr_update_pages(current_page, page_count),
-        gr.update(value=filter_stat_tx),
+        *gr_update_pages(current_page, _current_page_count()),
+        gr.update(value=_filter_stat_text("🙈 Hidden Wildcards")),
     )
 
 def act_show_all_visible():
@@ -394,14 +425,11 @@ def act_show_all_visible():
     _rebuild_filtered_pile_from_all()
 
     samples_list = update_gallery_view(update_stacks=True)
-    page_count = max(math.ceil(len(filtered_pile) / ITEMS_CAP), 1) if current_stack_level <= 0 else max(math.ceil(len(filtered_stacks) / ITEMS_CAP), 1)
-    filter_stat_tx = f"🎴 Filter Results: ({len(filtered_pile)}) Wildcards"
-    filter_stat_tx += f"  /  ({len(filtered_stacks)}) Packs at stacking lvl [{current_stack_level}]" if current_stack_level > 0 else ""
     return (
         gr.update(visible=bool(samples_list), samples=samples_list),
         gr.update(value=_hidden_count_html()),
-        *gr_update_pages(current_page, page_count),
-        gr.update(value=filter_stat_tx),
+        *gr_update_pages(current_page, _current_page_count()),
+        gr.update(value=_filter_stat_text()),
     )
 
 #-------------------------|Gradio Events lvl|-----------------------------
@@ -1321,9 +1349,9 @@ def on_ui_tabs():
         sel_mgr_tag_groups.select   (act_list_tagroup, inputs= [sel_mgr_tag_groups],  outputs=[tx_taggroup_name, sel_member_tags, opt_mask_group, picker_sec_color, btn_save_tag_group])
         btn_save_tag_group.click    (act_save_tagroup, inputs=[tx_taggroup_name, sel_member_tags, opt_mask_group, picker_sec_color], outputs=[opt_tags_groups, sel_mgr_tag_groups, tx_taggroup_name, sel_member_tags, opt_mask_group,  picker_sec_color, btn_save_tag_group] )
 
-        btn_visibility_mode.click   (act_toggle_visibility_mode, outputs=[btn_visibility_mode, visibility_actions_row, disp_hidden_count, state_vis_mode])
-        btn_hide_selected.click     (act_hide_selected,   outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor])
-        btn_unhide_selected.click   (act_unhide_selected, outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor])
+        btn_visibility_mode.click   (act_toggle_visibility_mode, outputs=[btn_visibility_mode, visibility_actions_row, disp_hidden_count, state_vis_mode, coll_flt_res, *gr_stack_page_selector, disp_results])
+        btn_hide_selected.click     (act_hide_selected,   outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor, *gr_stack_page_selector, disp_results])
+        btn_unhide_selected.click   (act_unhide_selected, outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor, *gr_stack_page_selector, disp_results])
         btn_show_hidden.click       (act_show_hidden_only,  outputs=[coll_flt_res, disp_hidden_count, *gr_stack_page_selector, disp_results])
         btn_show_all.click          (act_show_all_visible,  outputs=[coll_flt_res, disp_hidden_count, *gr_stack_page_selector, disp_results])
 
