@@ -1,5 +1,7 @@
 # Wildcard Gallery V2.1.0
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/megvadulthangya/wildcard-gallery)
+
 ## What is this
 
 This Automatic1111 extension primary adds a new extra networks gallery for wildcards along with preview thumbnails and other features for an enhanced wildcards management and user experience.
