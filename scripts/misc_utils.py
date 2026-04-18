@@ -769,6 +769,30 @@ def load_tags (target_file="tags_data.json")->dict[str:list[str]]:
             print(f"unable to read tags data from {file_path}")    
     return result
 
+HIDDEN_WILDCARDS_FILE = os.path.join(META_FOLDER, "hidden_wildcards.json")
+
+def load_hidden_wildcards() -> set:
+    """Loads the set of hidden wildcard paths from metadata/hidden_wildcards.json"""
+    try:
+        with open(HIDDEN_WILDCARDS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return set(data)
+    except (FileNotFoundError, json.JSONDecodeError, PermissionError):
+        pass
+    return set()
+
+def save_hidden_wildcards(hidden_set: set) -> bool:
+    """Saves the set of hidden wildcard paths to metadata/hidden_wildcards.json"""
+    try:
+        os.makedirs(META_FOLDER, exist_ok=True)
+        with open(HIDDEN_WILDCARDS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(sorted(list(hidden_set)), f, indent=2)
+        return True
+    except Exception as e:
+        print(f"[{EXT_NAME}] Failed to save hidden wildcards: {e}")
+        return False
+
 def merge_tag_dicts(old: dict[str, list[str]], new: dict[str, list[str]]) -> dict[str, list[str]]:
     merged = old.copy()
     for key, new_values in new.items():
@@ -781,8 +805,7 @@ def merge_tag_dicts(old: dict[str, list[str]], new: dict[str, list[str]]) -> dic
 def unpack_wildcard_pack(pack_path) -> str: 
     zip_cards_sub_path ="cards/" #non-dynamic logic bit
     zip_tags_file ="metadata/tags_data.json" #non-dynamic logic bit
-    imported_yaml_name = ""
-    
+
     tags_db_file = os.path.join(META_FOLDER, "tags_data.json")
     traget_dir = os.path.join(WILDCARDS_FOLDER,ADDED_WILDCARDS_FOLDER,"imported")
 
@@ -839,7 +862,6 @@ def unpack_wildcard_pack(pack_path) -> str:
 
             elif member.endswith('.yaml'):
                 source = zip_ref.open(member)
-                imported_yaml_name, _= os.path.splitext(member)
                 target_file = os.path.join(traget_dir, os.path.basename(member))
                 target_file = os.path.realpath(target_file)
                 if not target_file.startswith(os.path.realpath(traget_dir) + os.sep):
@@ -863,15 +885,6 @@ def unpack_wildcard_pack(pack_path) -> str:
 
                 with open(tags_db_file, 'w', encoding='utf-8') as f:
                     json.dump(merged_data, f, indent=2)
-    
-    if imported_yaml_name:
-        whitelist  = [item for item in getattr(shared.opts, "wcc_wildcards_whitelist", "").split("\n") if item]
-        if imported_yaml_name not in whitelist:
-            whitelist.append(imported_yaml_name)
-            new_opt = "\n".join(whitelist)
-            setattr(shared.opts,"wcc_wildcards_whitelist",new_opt)
-            shared.opts.save(shared.config_filename)
-            print("Whitelist Settings Updated")
 
 
 def process_selector(wild_path_selector, wild_paths)-> list[str]:

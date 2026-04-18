@@ -15,9 +15,19 @@ This Automatic1111 extension primary adds a new extra networks gallery for wildc
 - This extension has been updated for **Gradio 4.40+** compatibility, making it fully functional with modern WebUIs like **Forge**.
 
 ## Settings
-- **Note on Whitelist/Blacklist:** You may still see Whitelist and Blacklist options in the UI settings, but **these are now obsolete and no longer required**. The extension has been updated to automatically scan, index, and load *all* wildcards found in your directory into the gallery recursively. You do not need to manually add files to a whitelist anymore.
+- The extension automatically scans, indexes, and loads *all* wildcards found in your directory into the gallery recursively. There is no whitelist/blacklist to maintain — use the in-gallery **Visibility Manager** (see below) to hide cards you don't want to see.
 - you can toggle the Downscale preview images to resize and compress generated previews to take far less size on the disk
 <img src="screenshots/ml0.jpg"/>
+
+## Visibility Manager
+
+The Wildcards Filter tab includes a **Visibility Mode** toggle that lets you curate which wildcards show up in both the Filter tab gallery and the txt2img/img2img *Wildcards* Extra Networks tab — without deleting any files.
+
+- Toggle **Visibility Mode** on to reveal the hide/unhide action row under the gallery.
+- Select one or more cards and click **Hide Selected** to hide them, or **Unhide Selected** to bring them back.
+- Use **Show Hidden Only** / **Show All (excl. hidden)** to switch between browsing the hidden set and the normal (visible) set.
+- Clicking a card while Visibility Mode is on will *not* insert it into the prompt — so you can safely click-to-select for bulk hide/unhide operations.
+- Hidden wildcard paths are persisted in `metadata/hidden_wildcards.json` and survive WebUI restarts. The file is a plain JSON list; removing an entry re-enables the wildcard.
 
 ## Wildcard Filter Tab
 
