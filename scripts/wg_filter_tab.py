@@ -841,7 +841,10 @@ def remove_tag(sel_tag_add:list[str], tx_sel_tag_add:str):
     for entry in selected_entries:
         for tag in sel_tag_add:
             traget_tag_list = tags_dict.get(tag)
-            if traget_tag_list:
+            # Guard membership: act_toggle_fav strips 'fav' from every selected
+            # entry even when only some of them carry it, so a naive .remove()
+            # would raise ValueError for the ones whose path isn't in the list.
+            if traget_tag_list and entry.path in traget_tag_list:
                 traget_tag_list.remove(entry.path)
 
     if save_tags(tags_dict):
