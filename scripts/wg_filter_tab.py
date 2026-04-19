@@ -367,10 +367,15 @@ def _apply_visibility_change(paths, hide: bool):
 
     selected_entries = []
     selected_stack_paths = []
+    # Rebuild stacks first, then read page_count — _current_page_count() looks
+    # at filtered_stacks in stacked mode, so it has to run after the rebuild
+    # or we would page off a stale count. If snapping current_page to the new
+    # last page, re-render the view for that page.
+    samples_list = update_gallery_view(update_stacks=True)
     page_count = _current_page_count()
     if current_page > page_count:
         current_page = page_count
-    samples_list = update_gallery_view(update_stacks=True)
+        samples_list = update_gallery_view()
     prefix = "🙈 Hidden Wildcards" if show_hidden_only else "🎴 Filter Results"
     return (
         gr.update(visible=bool(samples_list), samples=samples_list),
@@ -794,10 +799,15 @@ def act_delete_selected_cards():
 
     selected_entries = []
     selected_stack_paths = []
+    # Rebuild stacks first, then read page_count — _current_page_count() looks
+    # at filtered_stacks in stacked mode, so it has to run after the rebuild
+    # or we would page off a stale count. If snapping current_page to the new
+    # last page, re-render the view for that page.
+    samples_list = update_gallery_view(update_stacks=True)
     page_count = _current_page_count()
     if current_page > page_count:
         current_page = page_count
-    samples_list = update_gallery_view(update_stacks=True)
+        samples_list = update_gallery_view()
     prefix = "🙈 Hidden Wildcards" if show_hidden_only else "🎴 Filter Results"
     return (
         gr.update(visible=bool(samples_list), samples=samples_list),
