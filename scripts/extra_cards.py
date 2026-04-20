@@ -11,6 +11,7 @@ from scripts.misc_utils import (
 )
 from scripts.wg_filter_tab import on_ui_tabs, init_filter_module
 from scripts.preview_processing import txt2img_prompting_process, txt2img_preview_process, normal_process
+from scripts.gradio_compat import js_kwarg, safe_info, safe_error
 import shutil
 import os
 import gradio as gr
@@ -199,7 +200,7 @@ def change_scrip_mode(mode):
 def act_lunch_gen(filter_extact_mode):
     sel_only = filter_extact_mode == FILTER_EXTRACT_OPTS[1]
     selected_wildcards_list = filter_interr_fn(sel_only)
-    gr.Info(f"Processing Tumbnails for {len(selected_wildcards_list)} Cards")
+    safe_info(f"Processing Tumbnails for {len(selected_wildcards_list)} Cards")
 
 
 class Script(scripts.Script):
@@ -256,7 +257,7 @@ class Script(scripts.Script):
         script_mode.change(change_scrip_mode, inputs=script_mode, outputs=[filter_extact_mode, prompting_mode, task_override, preview_suffix, insertion_type, btn_run_gen, replace_str_opt])
         insertion_type.change(toggle_search_replace_box, inputs=insertion_type, outputs=replace_str_opt)
         act_count.click(btn_count_wildcards, inputs=[filter_extact_mode], outputs=act_msg)
-        btn_run_gen.click(act_lunch_gen, inputs=[filter_extact_mode]).then(None, js=gen_click_js)
+        btn_run_gen.click(act_lunch_gen, inputs=[filter_extact_mode]).then(None, **js_kwarg(gen_click_js))
 
         return [filter_extact_mode, task_override, replace_str_opt, preview_suffix, insertion_type, script_mode, prompting_mode]
 
@@ -296,7 +297,7 @@ class Script(scripts.Script):
             processed_req, update_stack = txt2img_preview_process(p, new_selected_wild_paths, replace_str_opt, task_override, preview_suffix, insertion_type, view_mode=True)
 
         else:
-            gr.Error("Lacking selection or parameters", duration=3, visible=True)
+            safe_error("Lacking selection or parameters", duration=3)
             print("___Preview generation halted___")
             processed_req = txt2img_prompting_process(p, selected_wild_paths)
 

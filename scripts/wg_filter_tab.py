@@ -7,6 +7,7 @@ from scripts.misc_utils import (load_tags, save_tags, save_tag_config, process_s
                                  load_hidden_wildcards, save_hidden_wildcards,
                                  load_blacklist, save_blacklist,
                                  link_img, IMG_CHANNELS, WILD_STR, CARDS_FOLDER, EXT_NAME, ICON_LIB, SHARED_ASSESTS)
+from scripts.gradio_compat import js_kwarg, button_kwargs, safe_info
 
 
 TAB_NAME = "Wildcards Filter"
@@ -1111,7 +1112,7 @@ def act_misc_rebuild():
 
     if callable(rebuild_callback):
         rebuild_callback(shallow_refresh=False)
-        gr.Info("Dictionary have been rebuilt")
+        safe_info("Dictionary have been rebuilt")
     else:
         gr.Error("Dictionary rebuilding failed")
 
@@ -1184,10 +1185,10 @@ def act_import_wildpack(selected_file_path):
     print(f"importing {selected_file_path.name}")
     try:
         unpack_wildcard_pack(selected_file_path.name)
-        gr.Info("Wildcards imported successfully")
+        safe_info("Wildcards imported successfully")
         if callable(rebuild_callback):
             rebuild_callback(shallow_refresh=False)
-            gr.Info("Dictionary have been rebuilt")
+            safe_info("Dictionary have been rebuilt")
         else:
             gr.Error("Dictionary rebuilding failed")
 
@@ -1228,7 +1229,7 @@ def act_export(selection_mode, opt_skip_masked, opt_clear_maskedTags, tx_wildpac
     if traget_wildcards:
         opr_status = export_cards_pack(selected_cards=traget_wildcards, save_name=tx_wildpack_name, img_channels=[current_img_channel], exclude_Masked_Tags=opt_clear_maskedTags, config_dict=tag_config_dict)
         if opr_status:
-            gr.Info(f"Packaging successful")
+            safe_info(f"Packaging successful")
         else:
             gr.Warning(f"Packaging failed")
     else:
@@ -1306,9 +1307,9 @@ def on_ui_tabs():
             with gr.Column(elem_id="wcc_sel_view"):
                 disp_card_stack = gr.HTML("")
                 with gr.Row(elem_id="wcc_filt_send_sec"):
-                    btn_copy_txt = gr.Button("", visible=False, icon=ICON_LIB["copy"], elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_edit_card = gr.Button("", visible=False, icon=ICON_LIB["edit"], elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_fav_card = gr.Button("", visible=False, icon=ICON_LIB["fav"], elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_copy_txt = gr.Button("", visible=False, **button_kwargs(icon=ICON_LIB["copy"]), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_edit_card = gr.Button("", visible=False, **button_kwargs(icon=ICON_LIB["edit"]), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_fav_card = gr.Button("", visible=False, **button_kwargs(icon=ICON_LIB["fav"]), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
 
                 with gr.Accordion("Details", open=True, visible=False) as acc_aux_details:
                     disp_aux_details = gr.HTML(elem_id="wcc_sel_aux_dt")
@@ -1480,7 +1481,7 @@ def on_ui_tabs():
         sel_filter_prop.change(act_filter_mod_change, inputs=[sel_filter_prop], outputs=gr_stack_filter_pannel)
         btn_run_filter.click(act_run_filter, inputs=[sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input],
                              outputs=[coll_flt_res, *gr_stack_page_selector, disp_results, btn_create_mode, *gr_stack_card_editor])
-        coll_flt_res.select(act_select_entry, inputs=[coll_flt_res], outputs=[coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector, state_vis_mode], js=js_insert_prompt_conditional)
+        coll_flt_res.select(act_select_entry, inputs=[coll_flt_res], outputs=[coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector, state_vis_mode], **js_kwarg(js_insert_prompt_conditional))
 
         btn_pg_jump.click(act_paginate, inputs=[tx_pg_jump], outputs=[coll_flt_res, *gr_stack_page_selector])
         btn_pg_next.click(act_paginate_next, outputs=[coll_flt_res, *gr_stack_page_selector])
@@ -1494,7 +1495,7 @@ def on_ui_tabs():
         sel_none_fil_btn.click(act_deselect_all, outputs=[coll_flt_res, btn_create_mode, *gr_stack_card_editor])
         sel_mode_btn.click(act_change_sel_mode, outputs=[sel_mode_btn])
 
-        btn_copy_txt.click(act_copy_txt, inputs=[wcards_selector], outputs=[disp_notif, wcards_selector]).then(fn=None, inputs=[wcards_selector], js=js_clipborad)
+        btn_copy_txt.click(act_copy_txt, inputs=[wcards_selector], outputs=[disp_notif, wcards_selector]).then(fn=None, inputs=[wcards_selector], **js_kwarg(js_clipborad))
         btn_create_mode.click(enable_creation_mode, inputs=[], outputs=[btn_create_mode, coll_flt_res, *gr_stack_card_editor])
         tx_edit_quick_path.select(act_copy_path, inputs=[tx_edit_quick_path], outputs=[tx_edit_quick_path, tx_edit_wpath, sel_tag_add])
         btn_use_last.click(act_reuse_last, outputs=[tx_edit_quick_path, tx_edit_wpath, sel_tag_add])
