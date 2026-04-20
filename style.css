@@ -261,6 +261,16 @@
   max-width: 4em;
 }
 
+#wcc_visibility_actions,
+#wcc_blacklist_actions {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: var(--background-fill-primary);
+    padding: 0.4em 0;
+    border-bottom: 1px solid var(--block-border-color);
+}
+
 .wcc_status_btn:hover {
   background: var(--checkbox-background-color-selected) !important;
   border-color: var(--checkbox-background-color-selected);

@@ -484,6 +484,31 @@ def act_show_all_visible():
     )
 
 
+def act_show_all_independent():
+    """Show all wildcards that are not hidden and not blacklisted — independent of Visibility Mode."""
+    global show_hidden_only
+    global show_blacklist_only
+    global selected_entries
+    global selected_stack_paths
+    global current_page
+    global filtered_stacks
+
+    show_hidden_only = False
+    show_blacklist_only = False
+    selected_entries = []
+    selected_stack_paths = []
+    current_page = 1
+    filtered_stacks = {}
+    _rebuild_filtered_pile_from_all()
+
+    samples_list = update_gallery_view(update_stacks=True)
+    return (
+        gr.update(visible=bool(samples_list), samples=samples_list),
+        *gr_update_pages(current_page, _current_page_count()),
+        gr.update(value=_filter_stat_text()),
+    )
+
+
 # -------------------------|Blacklist handlers|--------------------
 
 def _apply_blacklist_change(paths, add: bool):
@@ -1332,6 +1357,7 @@ def on_ui_tabs():
                     with gr.Row(elem_id="wcc_filter_acts"):
                         sel_none_fil_btn = gr.Button("None", elem_classes="wcc_status_btn")
                         sel_all_fil_btn = gr.Button("ALL", elem_classes="wcc_status_btn")
+                        btn_show_all_independent = gr.Button("Show All", elem_classes="wcc_status_btn")
                         sel_mode_btn = gr.Button("Select Mode [Multi]", elem_classes="wcc_status_btn")
                         btn_create_mode = gr.Button("➕ Create New Card", visible=True, elem_classes="wcc_status_btn")
                         btn_visibility_mode = gr.Button("Visibility Mode", elem_classes="wcc_status_btn")
@@ -1340,19 +1366,19 @@ def on_ui_tabs():
                 state_blacklist_mode = gr.State(False)
 
                 wcards_selector = gr.Textbox(visible=False, interactive=False)
-                coll_flt_res = gr.Dataset(visible=False, label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples=[["<div></div>"] for _ in range(ITEMS_CAP)], samples_per_page=ITEMS_CAP + 1, type="index")
-                with gr.Row(visible=False) as visibility_actions_row:
+                with gr.Row(visible=False, elem_id="wcc_visibility_actions") as visibility_actions_row:
                     btn_hide_selected = gr.Button("Hide Selected", variant="stop", elem_classes="wcc_status_btn")
                     btn_unhide_selected = gr.Button("Unhide Selected", variant="primary", elem_classes="wcc_status_btn")
                     btn_show_hidden = gr.Button("Show Hidden Only", elem_classes="wcc_status_btn")
                     btn_show_all = gr.Button("Show All (excl. hidden)", elem_classes="wcc_status_btn")
                     disp_hidden_count = gr.HTML(value="")
-                with gr.Row(visible=False) as blacklist_actions_row:
+                with gr.Row(visible=False, elem_id="wcc_blacklist_actions") as blacklist_actions_row:
                     btn_blacklist_select_all = gr.Button("Select All", elem_classes="wcc_status_btn")
                     btn_add_to_blacklist = gr.Button("Add to Blacklist", variant="stop", elem_classes="wcc_status_btn")
                     btn_remove_from_blacklist = gr.Button("Remove from Blacklist", variant="primary", elem_classes="wcc_status_btn")
                     btn_show_blacklist = gr.Button("Show Blacklist", elem_classes="wcc_status_btn")
                     disp_blacklist_count = gr.HTML(value="")
+                coll_flt_res = gr.Dataset(visible=False, label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples=[["<div></div>"] for _ in range(ITEMS_CAP)], samples_per_page=ITEMS_CAP + 1, type="index")
                 with gr.Row(elem_id="wcc_pag_div"):
                     btn_pg_prev = gr.Button("\u25C0", visible=False)
                     tx_pg_jump = gr.Textbox(label="page", visible=False)
@@ -1494,6 +1520,7 @@ def on_ui_tabs():
         sel_all_fil_btn.click(act_select_all, outputs=[coll_flt_res, btn_create_mode, *gr_stack_card_editor])
         sel_none_fil_btn.click(act_deselect_all, outputs=[coll_flt_res, btn_create_mode, *gr_stack_card_editor])
         sel_mode_btn.click(act_change_sel_mode, outputs=[sel_mode_btn])
+        btn_show_all_independent.click(act_show_all_independent, outputs=[coll_flt_res, *gr_stack_page_selector, disp_results])
 
         btn_copy_txt.click(act_copy_txt, inputs=[wcards_selector], outputs=[disp_notif, wcards_selector]).then(fn=None, inputs=[wcards_selector], **js_kwarg(js_clipborad))
         btn_create_mode.click(enable_creation_mode, inputs=[], outputs=[btn_create_mode, coll_flt_res, *gr_stack_card_editor])
@@ -1535,13 +1562,6 @@ def on_ui_tabs():
         btn_show_all.click(act_show_all_visible, outputs=[coll_flt_res, disp_hidden_count, *gr_stack_page_selector, disp_results])
 
         # Blacklist events
-        btn_blacklist.click(
-            lambda: (gr.update(visible=True), gr.update(visible=False))[0],
-            outputs=[blacklist_actions_row],
-            _js=None
-        )
-        # Actually toggle row on button click: we need a proper toggle.
-        # We'll use a state variable and click handler.
         blacklist_row_visible = False
 
         def toggle_blacklist_row():
