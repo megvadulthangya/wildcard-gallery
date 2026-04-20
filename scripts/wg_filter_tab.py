@@ -506,6 +506,9 @@ def act_show_all_independent():
         gr.update(visible=bool(samples_list), samples=samples_list),
         *gr_update_pages(current_page, _current_page_count()),
         gr.update(value=_filter_stat_text()),
+        gr.update(value="Show Blacklist"),
+        gr.update(value=_blacklist_count_html()),
+        gr.update(value=_hidden_count_html()),
     )
 
 
@@ -1520,7 +1523,7 @@ def on_ui_tabs():
         sel_all_fil_btn.click(act_select_all, outputs=[coll_flt_res, btn_create_mode, *gr_stack_card_editor])
         sel_none_fil_btn.click(act_deselect_all, outputs=[coll_flt_res, btn_create_mode, *gr_stack_card_editor])
         sel_mode_btn.click(act_change_sel_mode, outputs=[sel_mode_btn])
-        btn_show_all_independent.click(act_show_all_independent, outputs=[coll_flt_res, *gr_stack_page_selector, disp_results])
+        btn_show_all_independent.click(act_show_all_independent, outputs=[coll_flt_res, *gr_stack_page_selector, disp_results, btn_show_blacklist, disp_blacklist_count, disp_hidden_count])
 
         btn_copy_txt.click(act_copy_txt, inputs=[wcards_selector], outputs=[disp_notif, wcards_selector]).then(fn=None, inputs=[wcards_selector], **js_kwarg(js_clipborad))
         btn_create_mode.click(enable_creation_mode, inputs=[], outputs=[btn_create_mode, coll_flt_res, *gr_stack_card_editor])
