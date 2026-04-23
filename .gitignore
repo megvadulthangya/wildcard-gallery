@@ -1,0 +1,15 @@
+# Logic
+cards/
+STRAY_RESOURCES/
+USER_OUTPUT/
+metadata/tags_config.json
+metadata/tags_data.json
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+**/__pycache__/
+*.py[cod]
+
+

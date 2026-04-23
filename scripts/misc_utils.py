@@ -323,8 +323,11 @@ def silentremove(filename):
 
 def collect_Wildcards(wildcards_dirs= [WILDCARDS_FOLDER], collect_prompts:bool = False, collect_sub_cards:bool = False) -> dict[str,WildcardEntry]:
     collected_wildcards = {}
-    whitelist  = [item for item in getattr(shared.opts, "wcc_wildcards_whitelist", "").split("\n") if item] + [SHARED_ASSESTS["custom_yaml"].split("/")[1]]
+    whitelist  = [item for item in getattr(shared.opts, "wcc_wildcards_whitelist", "").split("\n") if item]
     blacklist  = [item for item in getattr(shared.opts, "wcc_wildcards_blacklist", "").split("\n") if item]
+    no_whitelist = not whitelist
+    whitelist = whitelist + [SHARED_ASSESTS["custom_yaml"].split("/")[1]]
+
     if not wildcards_dirs : print("___Wildcard Directories is not setup yet!___")
     for wildcards_dir in wildcards_dirs :
         if os.path.isdir(wildcards_dir):
@@ -332,7 +335,7 @@ def collect_Wildcards(wildcards_dirs= [WILDCARDS_FOLDER], collect_prompts:bool =
                 for file in files:
                         if file.lower().endswith(".txt") :  
                             wild_path_txt = os.path.relpath(os.path.join(root,file),wildcards_dir).replace(os.path.sep, "/").replace(".txt", "")
-                            if((wild_path_txt in whitelist)or not whitelist) and not(wild_path_txt in blacklist):
+                            if  ( no_whitelist or wild_path_txt in whitelist ) and (wild_path_txt not in blacklist):
                                 if collect_prompts and collect_sub_cards:
                                     sub_txt_items =  get_txt_lines(os.path.join(root,file))
                                     if len(sub_txt_items)==1:
@@ -350,7 +353,7 @@ def collect_Wildcards(wildcards_dirs= [WILDCARDS_FOLDER], collect_prompts:bool =
                         elif file.lower().endswith(".yaml") :
                             wild_yaml_name, ext = os.path.splitext(file)
                             wild_yaml_name = wild_yaml_name.split(os.path.pathsep)[-1]
-                            if((wild_yaml_name in whitelist)or not whitelist) and not(wild_yaml_name in blacklist):
+                            if(no_whitelist or wild_yaml_name in whitelist) and (wild_yaml_name not in blacklist):
                                 new_scanned_cards = get_yaml_nodes(yaml_file_path= os.path.join(root, file) , deep_scan=collect_sub_cards)
                                 for card_path, card_prompt in new_scanned_cards.items():
                                     collected_wildcards[card_path]= scanned_data_as_wildcard(node_path= card_path, prompt=card_prompt, file_origin_path= os.path.join(root, file))
@@ -387,7 +390,7 @@ def get_yaml_paths(yaml_file_path, separator="/")->list[str]:
             paths.add(path)
 
     try:
-        with open(yaml_file_path, 'r') as file:
+        with open(yaml_file_path, 'r' , encoding='utf-8') as file:
             data = yaml.safe_load(file)
         paths = set()
         traverse(data)
@@ -424,7 +427,7 @@ def get_yaml_nodes( yaml_file_path:Union[str, IO], separator:str ="/", deep_scan
 
     try:
         if isinstance(yaml_file_path,str):
-            with open(yaml_file_path, 'r') as file:
+            with open(yaml_file_path, 'r' , encoding='utf-8') as file:
                 data = yaml.safe_load(file)
         else:
             data = yaml.safe_load(yaml_file_path)
@@ -758,7 +761,7 @@ def unpack_wildcard_pack(pack_path) -> str:
     
     if imported_yaml_name:
         whitelist  = [item for item in getattr(shared.opts, "wcc_wildcards_whitelist", "").split("\n") if item]
-        if imported_yaml_name not in whitelist:
+        if whitelist and imported_yaml_name not in whitelist:
             whitelist.append(imported_yaml_name)
             new_opt = "\n".join(whitelist)
             setattr(shared.opts,"wcc_wildcards_whitelist",new_opt)
