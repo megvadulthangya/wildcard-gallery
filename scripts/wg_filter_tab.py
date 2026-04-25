@@ -1272,24 +1272,6 @@ def on_ui_tabs():
             }
         '''
 
-        js_insert_prompt = '''
-            (wildcard_str) => {
-                var prompt_textarea = gradioApp().querySelector('#txt2img_prompt');
-                if (prompt_textarea) {
-                    var current_prompt = prompt_textarea.value;
-                    var new_prompt = current_prompt + " " + wildcard_str;
-                    prompt_textarea.value = new_prompt;
-                    prompt_textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                    console.log("Inserted: " + wildcard_str);
-                } else {
-                    console.log("Prompt textarea not found");
-                }
-                var notifContainer = document.getElementById("wcc_notif_msg");
-                if (notifContainer) notifContainer.classList.add("wcc_anim");
-                setTimeout(() => {  if (notifContainer)  notifContainer.classList.remove("wcc_anim");    }, 2100);
-            }
-        '''
-
         gr_stack_page_selector = [btn_pg_jump, tx_pg_jump, btn_pg_prev, btn_pg_next]
         gr_stack_filter_pannel = [sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input, btn_run_filter]
         gr_stack_card_editor = [disp_card_stack, btn_copy_txt, tx_edit_quick_path, btn_use_last, tx_edit_wpath, tx_edit_prompt, sel_tag_add, tx_sel_tag_add, btn_create_card, btn_tag_add, btn_tag_rmv, acc_aux_details, btn_edit_card, btn_fav_card]
@@ -1297,7 +1279,7 @@ def on_ui_tabs():
         sel_filter_prop.change(act_filter_mod_change, inputs=[sel_filter_prop], outputs=gr_stack_filter_pannel)
         btn_run_filter.click(act_run_filter, inputs=[sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input],
                              outputs=[coll_flt_res, *gr_stack_page_selector, disp_results, btn_create_mode, *gr_stack_card_editor])
-        coll_flt_res.select(act_select_entry, inputs=[coll_flt_res], outputs=[coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector], **js_kwarg(js_insert_prompt))
+        coll_flt_res.select(act_select_entry, inputs=[coll_flt_res], outputs=[coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector])
 
         btn_pg_jump.click(act_paginate, inputs=[tx_pg_jump], outputs=[coll_flt_res, *gr_stack_page_selector])
         btn_pg_next.click(act_paginate_next, outputs=[coll_flt_res, *gr_stack_page_selector])
