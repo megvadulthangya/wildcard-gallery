@@ -1,3 +1,4 @@
+import re
 from modules.ui_extra_networks import ExtraNetworksPage, quote_js, register_page
 from modules import shared, script_callbacks
 import modules.scripts as scripts 
@@ -46,6 +47,14 @@ class WildcardsCards(ExtraNetworksPage):
             clean_residue(CARDS_FOLDER, list(wildcards_dict.keys()))
 
         self.cards = wildcards_dict
+
+    def create_html_for_item(self, item, tabname):
+        html = super().create_html_for_item(item, tabname)
+        # Detach from the WebUI's global .card listeners
+        html = html.replace('class="card"', 'class="wg-card"')
+        # Remove the auto-prompt insertion onclick handler
+        html = re.sub(r'\s*onclick="cardClicked\([^)]*\)"', '', html)
+        return html
 
     def create_item(self, wild_path: str, index: int = 1, tags: list[str] = [], raw_prompt: str = "", thumbnail: str = "", mtime=1, enable_filter: bool = True):
         filePath = os.path.abspath(create_dir_and_file(CARDS_FOLDER, wild_path))
@@ -111,7 +120,7 @@ def on_ui_settings():
             "Main preview channel",
             gr.Dropdown,
             lambda: {"choices": IMG_CHANNELS},
-            section=section)
+            section=section),
     )
 
     shared.opts.add_option(
