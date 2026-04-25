@@ -338,6 +338,8 @@ def silentremove(filename):
 
 def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool = False, collect_sub_cards: bool = False) -> dict[str, WildcardEntry]:
     collected_wildcards = {}
+    txt_count = 0
+    yaml_count = 0
 
     print(f"[{EXT_NAME}] Scanning for wildcards in directories: {wildcards_dirs}")
 
@@ -355,11 +357,10 @@ def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool =
         for root, dirs, files in os.walk(wildcards_dir):
             for file in files:
                 if file.lower().endswith(".txt"):
+                    txt_count += 1
                     full_path = os.path.join(root, file)
                     rel_path = os.path.relpath(full_path, wildcards_dir)
                     wild_path_txt = rel_path.replace(os.path.sep, "/").replace(".txt", "")
-
-                    print(f"[{EXT_NAME}] Found .txt file: {full_path} -> wildcard path: {wild_path_txt}")
 
                     try:
                         if collect_prompts and collect_sub_cards:
@@ -389,11 +390,11 @@ def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool =
                         print(f"[{EXT_NAME}] Error processing file {full_path}: {e}")
 
                 elif file.lower().endswith(".yaml"):
+                    yaml_count += 1
                     full_path = os.path.join(root, file)
                     wild_yaml_name, ext = os.path.splitext(file)
                     wild_yaml_name = wild_yaml_name.split(os.path.pathsep)[-1]
 
-                    print(f"[{EXT_NAME}] Found .yaml file: {full_path}")
                     try:
                         new_scanned_cards = get_yaml_nodes(yaml_file_path=full_path, deep_scan=collect_sub_cards)
                         for card_path, card_prompt in new_scanned_cards.items():
@@ -405,7 +406,7 @@ def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool =
                     except Exception as e:
                         print(f"[{EXT_NAME}] Error processing YAML file {full_path}: {e}")
 
-    print(f"[{EXT_NAME}] Total wildcards found: {len(collected_wildcards)}")
+    print(f"[{EXT_NAME}] Processed {txt_count} .txt files and {yaml_count} .yaml files, total wildcards: {len(collected_wildcards)}")
     return collected_wildcards
 
 
