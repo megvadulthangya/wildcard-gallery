@@ -11,14 +11,6 @@ def js_kwarg(js_code: str):
     else:
         return {'_js': js_code}
 
-def button_kwargs(**kwargs):
-    """Filter out unsupported arguments for Gradio 3.x (e.g., 'icon')."""
-    if IS_GRADIO_4:
-        return kwargs
-    # For Gradio 3.x, remove 'icon' if present
-    kwargs.pop('icon', None)
-    return kwargs
-
 def safe_info(msg: str):
     """Show info message using gr.Info if available, else print to console."""
     if hasattr(gr, 'Info'):
