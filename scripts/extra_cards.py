@@ -334,6 +334,13 @@ def build_gallery_dict(perload_thumbnails: bool = False) -> tuple[dict[str, Wild
             if perload_thumbnails:
                 wildcard.preload_previews()
 
+    card_count = len(wildcards_dict)
+    if card_count > 7000:
+        warn_msg = f"[{EXT_NAME}] Warning: {card_count} wildcards found, UI may become sluggish."
+        print(warn_msg)
+        if hasattr(gr, 'Warning'):
+            gr.Warning(warn_msg)
+
     print(f"___Gallery dictionary built with [{len(wildcards_dict)} wildcards]___")
     return wildcards_dict, tags_dict
 
