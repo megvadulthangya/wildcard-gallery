@@ -1,4 +1,3 @@
-import re
 from modules.ui_extra_networks import ExtraNetworksPage, quote_js, register_page
 from modules import shared, script_callbacks
 import modules.scripts as scripts 
@@ -52,8 +51,11 @@ class WildcardsCards(ExtraNetworksPage):
         html = super().create_html_for_item(item, tabname)
         # Detach from the WebUI's global .card listeners
         html = html.replace('class="card"', 'class="wg-card"')
-        # Remove the auto-prompt insertion onclick handler
-        html = re.sub(r'\s*onclick="cardClicked\([^)]*\)"', '', html)
+        # Neutralize any onclick handler generically
+        html = html.replace('onclick="', 'data-unused="')
+        # Rename data attributes so extraNetworks.js global delegation ignores them
+        html = html.replace('data-name="', 'data-wg-name="')
+        html = html.replace('data-prompt="', 'data-wg-prompt="')
         return html
 
     def create_item(self, wild_path: str, index: int = 1, tags: list[str] = [], raw_prompt: str = "", thumbnail: str = "", mtime=1, enable_filter: bool = True):
