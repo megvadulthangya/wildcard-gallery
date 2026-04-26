@@ -77,7 +77,7 @@ class WildcardsCards(ExtraNetworksPage):
             "local_preview": thumbnail,
             "description": self.find_description(path),
             "search_terms": [self.search_terms_from_path(filePath)],
-            "prompt": quote_js(prompt),
+            "prompt": quote_js(""),
             "user_metadata": metadata,
             "sort_keys": {
                 "default": f"{category.lower()}-{name.lower()}",
