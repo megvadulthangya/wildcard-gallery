@@ -1,8 +1,7 @@
 from modules.processing import process_images, Processed, fix_seed
 from modules.shared import state, opts
 from modules import images
-import os
-import shutil 
+import os 
 from PIL import Image, ImageOps
 from scripts.misc_utils import (
     CARDS_FOLDER, RES_FOLDER, WILD_STR, VALID_IMG_EXT,EXT_NAME
@@ -46,7 +45,7 @@ def txt2img_preview_process(p,selected_wild_paths, replace_str_opt = "", task_ov
     job_count = 0 
     
     if(selected_wild_paths):
-        print(f"\n[{EXT_NAME}] Selected ({len(selected_wild_paths)}) wildcards for image generation :")
+        print(f"\n[{EXT_NAME}]> Selected ({len(selected_wild_paths)}) wildcards for image generation :")
         for channel_item in preview_suffix:
             suffix = "."+channel_item.replace(" ","") if (not channel_item=="") and (not channel_item=="default") and channel_item  else ""
             filtered_job_map[channel_item] = []
@@ -63,9 +62,9 @@ def txt2img_preview_process(p,selected_wild_paths, replace_str_opt = "", task_ov
                     print(f"  >> {wpath}")
             
             if view_mode:
-                print(f"\n[{EXT_NAME}] Using ({len(filtered_job_map[channel_item])}/{len(selected_wild_paths)}) wildcards for image generation ...\n ")
+                print(f"\n[{EXT_NAME}]> Using ({len(filtered_job_map[channel_item])}/{len(selected_wild_paths)}) wildcards for image generation ...\n ")
             else:
-                print(f"\n[{EXT_NAME}] Generating ({len(filtered_job_map[channel_item])}/{len(selected_wild_paths)}) wildcard previews for channel [{channel_item}] ...\n ")
+                print(f"\n[{EXT_NAME}]> Generating ({len(filtered_job_map[channel_item])}/{len(selected_wild_paths)}) wildcard previews for channel [{channel_item}] ...\n ")
             job_count+= len(filtered_job_map[channel_item])
 
         state.job_count = job_count
@@ -132,18 +131,18 @@ def txt2img_prompting_process(p,selected_wild_paths, replace_str_opt = "", inser
     job_count = 0 
     
     if(selected_wild_paths):
-        print(f"\n[{EXT_NAME}] Selected ({len(selected_wild_paths)}) wildcards for prompting:")
+        print(f"\n[{EXT_NAME}]> Selected ({len(selected_wild_paths)}) wildcards for prompting:")
         for wpath in selected_wild_paths : 
             filtered_job_list.append(f"{WILD_STR}{wpath}{WILD_STR}")
             print(f"  >> {wpath}")
             
 
         if combine_cards:
-            print(f"\n[{EXT_NAME}] Combining ({len(filtered_job_list)}) wildcards for image generation ...\n ")
+            print(f"\n[{EXT_NAME}]> Combining ({len(filtered_job_list)}) wildcards for image generation ...\n ")
             filtered_job_list[0] = ", ".join(filtered_job_list)
             job_count= 1
         else:
-            print(f"\n[{EXT_NAME}] Using ({len(filtered_job_list)}) wildcards for image generation ...\n ")
+            print(f"\n[{EXT_NAME}]> Using ({len(filtered_job_list)}) wildcards for image generation ...\n ")
             job_count+= len(filtered_job_list )
 
         state.job_count = job_count
