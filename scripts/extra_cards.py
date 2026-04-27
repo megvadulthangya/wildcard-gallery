@@ -47,6 +47,17 @@ class WildcardsCards(ExtraNetworksPage):
 
         self.cards = wildcards_dict
 
+    def create_html_for_item(self, item, tabname):
+        html = super().create_html_for_item(item, tabname)
+        # Detach from the WebUI's global .card listeners
+        html = html.replace('class="card"', 'class="wg-card"')
+        # Neutralize any onclick handler generically
+        html = html.replace('onclick="', 'data-unused="')
+        # Rename data attributes so extraNetworks.js global delegation ignores them
+        html = html.replace('data-name="', 'data-wg-name="')
+        html = html.replace('data-prompt="', 'data-wg-prompt="')
+        return html
+
     def create_item(self, wild_path: str, index: int = 1, tags: list[str] = [], raw_prompt: str = "", thumbnail: str = "", mtime=1, enable_filter: bool = True):
         filePath = os.path.abspath(create_dir_and_file(CARDS_FOLDER, wild_path))
         path, ext = os.path.splitext(filePath)
@@ -66,7 +77,7 @@ class WildcardsCards(ExtraNetworksPage):
             "local_preview": thumbnail,
             "description": self.find_description(path),
             "search_terms": [self.search_terms_from_path(filePath)],
-            "prompt": quote_js(prompt),
+            "prompt": quote_js(""),
             "user_metadata": metadata,
             "sort_keys": {
                 "default": f"{category.lower()}-{name.lower()}",
@@ -111,7 +122,7 @@ def on_ui_settings():
             "Main preview channel",
             gr.Dropdown,
             lambda: {"choices": IMG_CHANNELS},
-            section=section)
+            section=section),
     )
 
     shared.opts.add_option(
@@ -333,6 +344,13 @@ def build_gallery_dict(perload_thumbnails: bool = False) -> tuple[dict[str, Wild
             wildcard.is_preloaded = perload_thumbnails
             if perload_thumbnails:
                 wildcard.preload_previews()
+
+    card_count = len(wildcards_dict)
+    if card_count > 7000:
+        warn_msg = f"[{EXT_NAME}] Warning: {card_count} wildcards found, UI may become sluggish."
+        print(warn_msg)
+        if hasattr(gr, 'Warning'):
+            gr.Warning(warn_msg)
 
     print(f"___Gallery dictionary built with [{len(wildcards_dict)} wildcards]___")
     return wildcards_dict, tags_dict

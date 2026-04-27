@@ -4,10 +4,9 @@ import os
 import html as html_mod
 from scripts.misc_utils import (load_tags, save_tags, save_tag_config, process_selector, WildcardEntry, TagConfig, update_wildcard_yaml, create_dir_and_file, unpack_wildcard_pack,
                                  collect_stray_previews, export_cards_pack, wildpack_info_scan, html_simple_list,
-                                 load_hidden_wildcards, save_hidden_wildcards,
                                  load_blacklist, save_blacklist,
                                  link_img, IMG_CHANNELS, WILD_STR, CARDS_FOLDER, EXT_NAME, ICON_LIB, SHARED_ASSESTS)
-from scripts.gradio_compat import js_kwarg, button_kwargs, safe_info
+from scripts.gradio_compat import js_kwarg, safe_info, IS_GRADIO_4
 
 
 TAB_NAME = "Wildcards Filter"
@@ -33,10 +32,6 @@ last_edit: WildcardEntry = None
 multi_selection_mode = True
 card_edit_mode = False
 hidden_tag_groups = []
-
-hidden_wildcards: set = set()
-visibility_mode: bool = False
-show_hidden_only: bool = False
 
 # Blacklist state
 blacklist: set = set()
@@ -76,9 +71,6 @@ def init_filter_module(built_wildcards_dict: dict[str, WildcardEntry], built_tag
 
     wildcards_dict = built_wildcards_dict
     tags_dict = built_tags_dict
-
-    hidden_wildcards.clear()
-    hidden_wildcards.update(load_hidden_wildcards())
 
     blacklist = load_blacklist()
 
@@ -121,11 +113,7 @@ def _rebuild_filtered_pile_from_all():
     if show_blacklist_only:
         filtered_pile = _build_blacklist_placeholders()
     else:
-        filtered_pile = [
-            entry for wpath, entry in wildcards_dict.items()
-            if (show_hidden_only and wpath in hidden_wildcards)
-            or (not show_hidden_only and wpath not in hidden_wildcards)
-        ]
+        filtered_pile = list(wildcards_dict.values())
     for entry in filtered_pile:
         if not entry.is_preloaded:
             entry.preload_previews()
@@ -324,8 +312,6 @@ def update_card_mode(html_view: str = "", is_creation: bool = True, is_selection
         gr.update(visible=is_edit),
         gr.update(visible=is_edit),
         gr.update(visible=is_selection and len(selected_entries) < 2),
-
-        gr.update(visible=is_selection or is_edit),
         gr.update(visible=is_selection or is_edit),
         gr.update(visible=is_selection or is_edit),
     )
@@ -343,173 +329,8 @@ def gr_update_pages(page=0, max_pages=0):
     )
 
 
-def _hidden_count_html() -> str:
-    return f"🙈 {len(hidden_wildcards)} hidden wildcards"
-
-
 def _blacklist_count_html() -> str:
     return f"⛔ {len(blacklist)} blacklisted"
-
-
-# -------------------------|Visibility Manager helpers|--------------------
-
-def act_toggle_visibility_mode():
-    global visibility_mode
-    global show_hidden_only
-    global selected_entries
-    global selected_stack_paths
-    global current_page
-    global filtered_stacks
-
-    was_show_hidden_only = show_hidden_only
-    visibility_mode = not visibility_mode
-    label = "Visibility Mode [ON]" if visibility_mode else "Visibility Mode"
-
-    if not visibility_mode and was_show_hidden_only:
-        show_hidden_only = False
-        selected_entries = []
-        selected_stack_paths = []
-        current_page = 1
-        filtered_stacks = {}
-        _rebuild_filtered_pile_from_all()
-        samples_list = update_gallery_view(update_stacks=True)
-        gallery_update = gr.update(visible=bool(samples_list), samples=samples_list)
-        pages_updates = gr_update_pages(current_page, _current_page_count())
-        results_update = gr.update(value=_filter_stat_text())
-    else:
-        gallery_update = gr.update()
-        pages_updates = (gr.update(), gr.update(), gr.update(), gr.update())
-        results_update = gr.update()
-
-    return (
-        gr.update(value=label),
-        gr.update(visible=visibility_mode),
-        gr.update(value=_hidden_count_html()),
-        visibility_mode,
-        gallery_update,
-        *pages_updates,
-        results_update,
-    )
-
-
-def _apply_visibility_change(paths, hide: bool):
-    global hidden_wildcards
-    global filtered_pile
-    global selected_entries
-    global selected_stack_paths
-    global current_page
-
-    if paths:
-        if hide:
-            hidden_wildcards = hidden_wildcards | paths
-            drop_from_pile = not show_hidden_only
-        else:
-            hidden_wildcards = hidden_wildcards - paths
-            drop_from_pile = show_hidden_only
-        save_hidden_wildcards(hidden_wildcards)
-        if drop_from_pile:
-            filtered_pile = [e for e in filtered_pile if e.path not in paths]
-
-    selected_entries = []
-    selected_stack_paths = []
-    samples_list = update_gallery_view(update_stacks=True)
-    page_count = _current_page_count()
-    if current_page > page_count:
-        current_page = page_count
-        samples_list = update_gallery_view()
-    prefix = "🙈 Hidden Wildcards" if show_hidden_only else "🎴 Filter Results"
-    return (
-        gr.update(visible=bool(samples_list), samples=samples_list),
-        gr.update(value=_hidden_count_html()),
-        gr.update(visible=True),
-        *update_card_mode(is_creation=False, is_selection=False, is_edit=False),
-        *gr_update_pages(current_page, page_count),
-        gr.update(value=_filter_stat_text(prefix)),
-    )
-
-
-def act_hide_selected():
-    paths_to_hide = {entry.path for entry in selected_entries}
-    return _apply_visibility_change(paths_to_hide, hide=True)
-
-
-def act_unhide_selected():
-    paths_to_unhide = {entry.path for entry in selected_entries}
-    return _apply_visibility_change(paths_to_unhide, hide=False)
-
-
-def act_show_hidden_only():
-    global show_hidden_only
-    global selected_entries
-    global selected_stack_paths
-    global current_page
-    global filtered_stacks
-
-    show_hidden_only = True
-    selected_entries = []
-    selected_stack_paths = []
-    current_page = 1
-    filtered_stacks = {}
-    _rebuild_filtered_pile_from_all()
-
-    samples_list = update_gallery_view(update_stacks=True)
-    return (
-        gr.update(visible=bool(samples_list), samples=samples_list),
-        gr.update(value=_hidden_count_html()),
-        *gr_update_pages(current_page, _current_page_count()),
-        gr.update(value=_filter_stat_text("🙈 Hidden Wildcards")),
-    )
-
-
-def act_show_all_visible():
-    global show_hidden_only
-    global selected_entries
-    global selected_stack_paths
-    global current_page
-    global filtered_stacks
-
-    show_hidden_only = False
-    selected_entries = []
-    selected_stack_paths = []
-    current_page = 1
-    filtered_stacks = {}
-    _rebuild_filtered_pile_from_all()
-
-    samples_list = update_gallery_view(update_stacks=True)
-    return (
-        gr.update(visible=bool(samples_list), samples=samples_list),
-        gr.update(value=_hidden_count_html()),
-        *gr_update_pages(current_page, _current_page_count()),
-        gr.update(value=_filter_stat_text()),
-    )
-
-
-def act_show_all_independent():
-    """Show all wildcards that are not hidden and not blacklisted — independent of Visibility Mode."""
-    global show_hidden_only
-    global show_blacklist_only
-    global selected_entries
-    global selected_stack_paths
-    global current_page
-    global filtered_stacks
-
-    show_hidden_only = False
-    show_blacklist_only = False
-    selected_entries = []
-    selected_stack_paths = []
-    current_page = 1
-    filtered_stacks = {}
-    _rebuild_filtered_pile_from_all()
-
-    samples_list = update_gallery_view(update_stacks=True)
-    return (
-        gr.update(visible=bool(samples_list), samples=samples_list),
-        *gr_update_pages(current_page, _current_page_count()),
-        gr.update(value=_filter_stat_text()),
-        gr.update(value="Show Blacklist"),
-        gr.update(value=_blacklist_count_html()),
-        gr.update(value=_hidden_count_html()),
-    )
 
 
 # -------------------------|Blacklist handlers|--------------------
@@ -736,10 +557,6 @@ def act_run_filter(sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_inp
 
         if filtered_list:
             for wpath in filtered_list:
-                if not show_hidden_only and wpath in hidden_wildcards:
-                    continue
-                if show_hidden_only and wpath not in hidden_wildcards:
-                    continue
                 entry = wildcards_dict.get(wpath)
                 if entry:
                     if not entry.is_preloaded:
@@ -788,7 +605,7 @@ def act_select_entry(index):
         gr.update(visible=True),
         *update_card_mode(html_view, is_creation=False, is_selection=bool(selected_entries), is_edit=False),
         gr.update(value=aux_details, visible=(selected_entries and (len(selected_entries) < 2))),
-        gr.update(value=selected_wildcard_str)
+        gr.update(value="")
     )
 
 
@@ -1335,9 +1152,9 @@ def on_ui_tabs():
             with gr.Column(elem_id="wcc_sel_view"):
                 disp_card_stack = gr.HTML("")
                 with gr.Row(elem_id="wcc_filt_send_sec"):
-                    btn_copy_txt = gr.Button("", visible=False, **button_kwargs(icon=ICON_LIB["copy"]), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_edit_card = gr.Button("", visible=False, **button_kwargs(icon=ICON_LIB["edit"]), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
-                    btn_fav_card = gr.Button("", visible=False, **button_kwargs(icon=ICON_LIB["fav"]), elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_copy_txt = gr.Button("", visible=False, icon=ICON_LIB["copy"], elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_edit_card = gr.Button("", visible=False, icon=ICON_LIB["edit"], elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
+                    btn_fav_card = gr.Button("", visible=False, icon=ICON_LIB["fav"], elem_classes=["wcc_status_btn", "wcc_iconed_btn"])
 
                 with gr.Accordion("Details", open=True, visible=False) as acc_aux_details:
                     disp_aux_details = gr.HTML(elem_id="wcc_sel_aux_dt")
@@ -1360,28 +1177,17 @@ def on_ui_tabs():
                     with gr.Row(elem_id="wcc_filter_acts"):
                         sel_none_fil_btn = gr.Button("None", elem_classes="wcc_status_btn")
                         sel_all_fil_btn = gr.Button("ALL", elem_classes="wcc_status_btn")
-                        btn_show_all_independent = gr.Button("Show All", elem_classes="wcc_status_btn")
                         sel_mode_btn = gr.Button("Select Mode [Multi]", elem_classes="wcc_status_btn")
                         btn_create_mode = gr.Button("➕ Create New Card", visible=True, elem_classes="wcc_status_btn")
-                        btn_visibility_mode = gr.Button("Visibility Mode", elem_classes="wcc_status_btn")
                         btn_blacklist = gr.Button("Blacklist", elem_classes="wcc_status_btn")
-                state_vis_mode = gr.State(False)
-                state_blacklist_mode = gr.State(False)
-
                 wcards_selector = gr.Textbox(visible=False, interactive=False)
-                with gr.Row(visible=False, elem_id="wcc_visibility_actions") as visibility_actions_row:
-                    btn_hide_selected = gr.Button("Hide Selected", variant="stop", elem_classes="wcc_status_btn")
-                    btn_unhide_selected = gr.Button("Unhide Selected", variant="primary", elem_classes="wcc_status_btn")
-                    btn_show_hidden = gr.Button("Show Hidden Only", elem_classes="wcc_status_btn")
-                    btn_show_all = gr.Button("Show All (excl. hidden)", elem_classes="wcc_status_btn")
-                    disp_hidden_count = gr.HTML(value="")
-                with gr.Row(visible=False, elem_id="wcc_blacklist_actions") as blacklist_actions_row:
+                coll_flt_res = gr.Dataset(visible=False, label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples=[["<div></div>"] for _ in range(ITEMS_CAP)], samples_per_page=ITEMS_CAP + 1, type="index")
+                with gr.Row(visible=False) as blacklist_actions_row:
                     btn_blacklist_select_all = gr.Button("Select All", elem_classes="wcc_status_btn")
                     btn_add_to_blacklist = gr.Button("Add to Blacklist", variant="stop", elem_classes="wcc_status_btn")
                     btn_remove_from_blacklist = gr.Button("Remove from Blacklist", variant="primary", elem_classes="wcc_status_btn")
                     btn_show_blacklist = gr.Button("Show Blacklist", elem_classes="wcc_status_btn")
                     disp_blacklist_count = gr.HTML(value="")
-                coll_flt_res = gr.Dataset(visible=False, label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples=[["<div></div>"] for _ in range(ITEMS_CAP)], samples_per_page=ITEMS_CAP + 1, type="index")
                 with gr.Row(elem_id="wcc_pag_div"):
                     btn_pg_prev = gr.Button("\u25C0", visible=False)
                     tx_pg_jump = gr.Textbox(label="page", visible=False)
@@ -1390,7 +1196,7 @@ def on_ui_tabs():
 
         with gr.Accordion("Import Wildcards Pack", open=False):
             with gr.Row():
-                file_browse_wp = gr.File(file_count="single", type='filepath', file_types=[".zip"], label="Wildcard pack", show_label=True)
+                file_browse_wp = gr.File(file_count="single", type='filepath' if IS_GRADIO_4 else 'file', file_types=[".zip"], label="Wildcard pack", show_label=True)
             with gr.Row():
                 html_pack_info = gr.HTML(visible=False)
             btn_import_wp = gr.Button(visible=False, value="Import", variant="primary")
@@ -1466,43 +1272,6 @@ def on_ui_tabs():
             }
         '''
 
-        js_insert_prompt = '''
-            (wildcard_str) => {
-                var prompt_textarea = gradioApp().querySelector('#txt2img_prompt');
-                if (prompt_textarea) {
-                    var current_prompt = prompt_textarea.value;
-                    var new_prompt = current_prompt + " " + wildcard_str;
-                    prompt_textarea.value = new_prompt;
-                    prompt_textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                    console.log("Inserted: " + wildcard_str);
-                } else {
-                    console.log("Prompt textarea not found");
-                }
-                var notifContainer = document.getElementById("wcc_notif_msg");
-                if (notifContainer) notifContainer.classList.add("wcc_anim");
-                setTimeout(() => {  if (notifContainer)  notifContainer.classList.remove("wcc_anim");    }, 2100);
-            }
-        '''
-
-        js_insert_prompt_conditional = '''
-            (wildcard_str, vis_mode) => {
-                if (vis_mode) return;
-                var prompt_textarea = gradioApp().querySelector('#txt2img_prompt');
-                if (prompt_textarea) {
-                    var current_prompt = prompt_textarea.value;
-                    var new_prompt = current_prompt + " " + wildcard_str;
-                    prompt_textarea.value = new_prompt;
-                    prompt_textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                    console.log("Inserted: " + wildcard_str);
-                } else {
-                    console.log("Prompt textarea not found");
-                }
-                var notifContainer = document.getElementById("wcc_notif_msg");
-                if (notifContainer) notifContainer.classList.add("wcc_anim");
-                setTimeout(() => {  if (notifContainer)  notifContainer.classList.remove("wcc_anim");    }, 2100);
-            }
-        '''
-
         gr_stack_page_selector = [btn_pg_jump, tx_pg_jump, btn_pg_prev, btn_pg_next]
         gr_stack_filter_pannel = [sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input, btn_run_filter]
         gr_stack_card_editor = [disp_card_stack, btn_copy_txt, tx_edit_quick_path, btn_use_last, tx_edit_wpath, tx_edit_prompt, sel_tag_add, tx_sel_tag_add, btn_create_card, btn_tag_add, btn_tag_rmv, acc_aux_details, btn_edit_card, btn_fav_card]
@@ -1510,7 +1279,7 @@ def on_ui_tabs():
         sel_filter_prop.change(act_filter_mod_change, inputs=[sel_filter_prop], outputs=gr_stack_filter_pannel)
         btn_run_filter.click(act_run_filter, inputs=[sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input],
                              outputs=[coll_flt_res, *gr_stack_page_selector, disp_results, btn_create_mode, *gr_stack_card_editor])
-        coll_flt_res.select(act_select_entry, inputs=[coll_flt_res], outputs=[coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector, state_vis_mode], **js_kwarg(js_insert_prompt_conditional))
+        coll_flt_res.select(act_select_entry, inputs=[coll_flt_res], outputs=[coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector])
 
         btn_pg_jump.click(act_paginate, inputs=[tx_pg_jump], outputs=[coll_flt_res, *gr_stack_page_selector])
         btn_pg_next.click(act_paginate_next, outputs=[coll_flt_res, *gr_stack_page_selector])
@@ -1523,7 +1292,6 @@ def on_ui_tabs():
         sel_all_fil_btn.click(act_select_all, outputs=[coll_flt_res, btn_create_mode, *gr_stack_card_editor])
         sel_none_fil_btn.click(act_deselect_all, outputs=[coll_flt_res, btn_create_mode, *gr_stack_card_editor])
         sel_mode_btn.click(act_change_sel_mode, outputs=[sel_mode_btn])
-        btn_show_all_independent.click(act_show_all_independent, outputs=[coll_flt_res, *gr_stack_page_selector, disp_results, btn_show_blacklist, disp_blacklist_count, disp_hidden_count])
 
         btn_copy_txt.click(act_copy_txt, inputs=[wcards_selector], outputs=[disp_notif, wcards_selector]).then(fn=None, inputs=[wcards_selector], **js_kwarg(js_clipborad))
         btn_create_mode.click(enable_creation_mode, inputs=[], outputs=[btn_create_mode, coll_flt_res, *gr_stack_card_editor])
@@ -1556,13 +1324,6 @@ def on_ui_tabs():
                                   outputs=[tx_taggroup_name, sel_member_tags, opt_mask_group, picker_sec_color, btn_save_tag_group])
         btn_save_tag_group.click(act_save_tagroup, inputs=[tx_taggroup_name, sel_member_tags, opt_mask_group, picker_sec_color],
                                  outputs=[opt_tags_groups, sel_mgr_tag_groups, tx_taggroup_name, sel_member_tags, opt_mask_group, picker_sec_color, btn_save_tag_group])
-
-        btn_visibility_mode.click(act_toggle_visibility_mode,
-                                  outputs=[btn_visibility_mode, visibility_actions_row, disp_hidden_count, state_vis_mode, coll_flt_res, *gr_stack_page_selector, disp_results])
-        btn_hide_selected.click(act_hide_selected, outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor, *gr_stack_page_selector, disp_results])
-        btn_unhide_selected.click(act_unhide_selected, outputs=[coll_flt_res, disp_hidden_count, btn_create_mode, *gr_stack_card_editor, *gr_stack_page_selector, disp_results])
-        btn_show_hidden.click(act_show_hidden_only, outputs=[coll_flt_res, disp_hidden_count, *gr_stack_page_selector, disp_results])
-        btn_show_all.click(act_show_all_visible, outputs=[coll_flt_res, disp_hidden_count, *gr_stack_page_selector, disp_results])
 
         # Blacklist events
         blacklist_row_visible = False
