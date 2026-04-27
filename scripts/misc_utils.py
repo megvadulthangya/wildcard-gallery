@@ -1,5 +1,4 @@
 from modules import scripts, shared
-from modules import scripts, shared
 from modules.paths import extensions_dir
 
 import os, shutil, yaml, json, errno, urllib.parse, time, zipfile, io, requests, re, html as html_mod
@@ -13,10 +12,7 @@ from dataclasses import dataclass, field, asdict
 import mimetypes
 
 
-
 def fetch_wilcards_dir():
-    setting_dir = (getattr(shared.opts, "wcc_wildcards_directory", "") or "").strip()
-    found_path = os.path.join(extensions_dir, "sd-dynamic-prompts", "wildcards")
     setting_dir = (getattr(shared.opts, "wcc_wildcards_directory", "") or "").strip()
     found_path = os.path.join(extensions_dir, "sd-dynamic-prompts", "wildcards")
     if os.path.isdir(setting_dir):
@@ -26,16 +22,13 @@ def fetch_wilcards_dir():
     elif getattr(shared.cmd_opts, "wildcards_dir", None):
         found_path = getattr(shared.cmd_opts, "wildcards_dir", None)
 
-
     if os.path.isdir(found_path):
         try:
-            setattr(shared.opts, "wcc_wildcards_directory", found_path)
             setattr(shared.opts, "wcc_wildcards_directory", found_path)
         except:
             print(f"{EXT_NAME}: Wildcard directory path is not set!")
         return found_path
     else:
-        print("No wildcards directory was found, make sure you have the sd-dynamic-prompts extension installed, if you have a custom directory make sure to set it manually in the settings")
         print("No wildcards directory was found, make sure you have the sd-dynamic-prompts extension installed, if you have a custom directory make sure to set it manually in the settings")
         return None
 
@@ -51,7 +44,6 @@ WILD_STR = getattr(shared.opts, "dp_parser_wildcard_wrap", "__")
 COLL_PREV_folder = os.path.join(scripts.basedir(), "USER_OUTPUT")
 STRAY_RES_folder = os.path.join(COLL_PREV_folder, "STRAY_RESOURCES")
 IMG_CHANNELS = ["default", "preview1", "preview2", "preview3", "channel4"]
-IMG_CHANNELS = ["default", "preview1", "preview2", "preview3", "channel4"]
 VALID_IMG_EXT = [".jpeg", ".jpg", ".png", ".gif"]
 ICON_LIB = {
     "copy": os.path.join(RES_FOLDER, "icons", "copy.svg"),
@@ -65,19 +57,11 @@ SHARED_ASSESTS = {
     "card_fallback": os.path.join(RES_FOLDER, "wcc_fallback.jpg"),
     "card_create": os.path.join(RES_FOLDER, "card-sel.gif"),
     "null_card": os.path.join(RES_FOLDER, "null-preview.jpeg"),
-    "card_fallback": os.path.join(RES_FOLDER, "wcc_fallback.jpg"),
-    "card_create": os.path.join(RES_FOLDER, "card-sel.gif"),
-    "null_card": os.path.join(RES_FOLDER, "null-preview.jpeg"),
     "custom_yaml": f"{ADDED_WILDCARDS_FOLDER}/custom_cards"
 }
 
 
-
 @dataclass
-class UserAuxMetadata:
-    url: str = field(default="")
-    os_url: str = field(default="")
-    notes: str = field(default="")
 class UserAuxMetadata:
     url: str = field(default="")
     os_url: str = field(default="")
@@ -87,13 +71,7 @@ class UserAuxMetadata:
 @dataclass
 class WildcardEntry:
     name: str
-    name: str
     path: str
-    prompts: str = field(default="")
-    aux_prompt: str = field(default="")
-    thumbnails: dict[str, str] = field(default_factory=dict)
-    last_update: int = field(default=int(time.time()))
-    is_preloaded: bool = field(default=False)
     prompts: str = field(default="")
     aux_prompt: str = field(default="")
     thumbnails: dict[str, str] = field(default_factory=dict)
@@ -102,32 +80,19 @@ class WildcardEntry:
     tags: list[str] = field(default_factory=list)
     file_origin: str = field(default="")
     is_locked: bool = field(default=True)
-    file_origin: str = field(default="")
-    is_locked: bool = field(default=True)
 
     def check_lock_status(self):
         return not os.path.normpath(self.file_origin).endswith(os.path.normpath(SHARED_ASSESTS["custom_yaml"] + ".yaml"))
-    def check_lock_status(self):
-        return not os.path.normpath(self.file_origin).endswith(os.path.normpath(SHARED_ASSESTS["custom_yaml"] + ".yaml"))
 
-    def get_preview_channels(self):
     def get_preview_channels(self):
         preview_channels = []
-        for chn, img in self.thumbnails.items():
-            if img != SHARED_ASSESTS["card_fallback"] and img:
         for chn, img in self.thumbnails.items():
             if img != SHARED_ASSESTS["card_fallback"] and img:
                 preview_channels.append(chn)
         return preview_channels
 
     def preload_previews(self, channels: list[str] = IMG_CHANNELS, parent_dir: str = CARDS_FOLDER):
-
-    def preload_previews(self, channels: list[str] = IMG_CHANNELS, parent_dir: str = CARDS_FOLDER):
         self.is_preloaded = True
-        for channel in channels:
-            self.thumbnails[channel] = SHARED_ASSESTS["card_fallback"]
-            suffix = "" if channel == "default" else f".{channel}"
-            possible_file = os.path.join(parent_dir, self.path + suffix)
         for channel in channels:
             self.thumbnails[channel] = SHARED_ASSESTS["card_fallback"]
             suffix = "" if channel == "default" else f".{channel}"
@@ -136,30 +101,20 @@ class WildcardEntry:
                 img_path = os.path.normpath(possible_file + ext)
                 if os.path.exists(img_path):
                     self.thumbnails[channel] = img_path
-                    self.thumbnails[channel] = img_path
                     break
-
-    def update_thumbnails(self, update_dict: dict[str, str] = {}):
 
     def update_thumbnails(self, update_dict: dict[str, str] = {}):
         self.thumbnails.update(update_dict)
         self.last_update = int(time.time())
 
     def nullify_channel_img(self, channels: list[str] = IMG_CHANNELS, parent_dir: str = CARDS_FOLDER):
-
-    def nullify_channel_img(self, channels: list[str] = IMG_CHANNELS, parent_dir: str = CARDS_FOLDER):
         affected_image = []
-        fl_nm, fl_ext = os.path.splitext(SHARED_ASSESTS["null_card"])
         fl_nm, fl_ext = os.path.splitext(SHARED_ASSESTS["null_card"])
         self.last_update = int(time.time())
         for channel in channels:
             suffix = "" if channel == "default" else f".{channel}"
             resulted_file = os.path.normpath(os.path.join(parent_dir, self.path + suffix + fl_ext))
-        for channel in channels:
-            suffix = "" if channel == "default" else f".{channel}"
-            resulted_file = os.path.normpath(os.path.join(parent_dir, self.path + suffix + fl_ext))
             try:
-                shutil.copyfile(SHARED_ASSESTS["null_card"], resulted_file)
                 shutil.copyfile(SHARED_ASSESTS["null_card"], resulted_file)
                 affected_image.append(resulted_file)
             except OSError:
@@ -167,12 +122,8 @@ class WildcardEntry:
         return affected_image
 
     def delete_channel_img(self, channels: list[str] = IMG_CHANNELS, parent_dir: str = CARDS_FOLDER):
-    def delete_channel_img(self, channels: list[str] = IMG_CHANNELS, parent_dir: str = CARDS_FOLDER):
         removed_image = []
         self.last_update = int(time.time())
-        for channel in channels:
-            suffix = "" if channel == "default" else f".{channel}"
-            possible_file = os.path.join(parent_dir, self.path + suffix)
         for channel in channels:
             suffix = "" if channel == "default" else f".{channel}"
             possible_file = os.path.join(parent_dir, self.path + suffix)
@@ -182,7 +133,6 @@ class WildcardEntry:
                     try:
                         silentremove(img_path)
                         self.thumbnails[channel] = SHARED_ASSESTS["card_fallback"]
-                        self.thumbnails[channel] = SHARED_ASSESTS["card_fallback"]
                         removed_image.append(img_path)
                     except OSError:
                         print(f"failed to delete [{img_path}]")
@@ -190,13 +140,7 @@ class WildcardEntry:
         return removed_image
 
     def collect_channel_img(self, channels: list[str] = IMG_CHANNELS, parent_dir: str = CARDS_FOLDER, dest_dir: str = COLL_PREV_folder):
-
-    def collect_channel_img(self, channels: list[str] = IMG_CHANNELS, parent_dir: str = CARDS_FOLDER, dest_dir: str = COLL_PREV_folder):
         collected_images = []
-        os.makedirs(dest_dir, exist_ok=True)
-        for channel in channels:
-            suffix = "" if channel == "default" else f".{channel}"
-            possible_file = os.path.join(parent_dir, self.path + suffix)
         os.makedirs(dest_dir, exist_ok=True)
         for channel in channels:
             suffix = "" if channel == "default" else f".{channel}"
@@ -207,7 +151,6 @@ class WildcardEntry:
                     try:
                         dest_file_path = os.path.join(dest_dir, os.path.relpath(img_path, parent_dir))
                         copy_with_directories(src=img_path, dst=dest_file_path)
-                        copy_with_directories(src=img_path, dst=dest_file_path)
                         collected_images.append(img_path)
                     except OSError:
                         print(f"failed to copy [{img_path}]")
@@ -215,15 +158,7 @@ class WildcardEntry:
         return collected_images
 
     def html_tag_stack(self, config_dict: dict[str, 'TagConfig'] = {}, hide_masked=False, masked_groups=[]):
-    def html_tag_stack(self, config_dict: dict[str, 'TagConfig'] = {}, hide_masked=False, masked_groups=[]):
         config_block = r'style="color: ##tx_col##;background: ##bg_col##;"'
-        tag_html_block = r'<div class="wcc_gal_tag" ##stl## >###</div>'
-        tags_stack_block = r'<div class="wcc_tag_stack">###</div>'
-        fav_heart_svg = (
-            r'<svg class="wcc_fav_heart" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="favourite">'
-            r'<path d="M2 9.1371C2 14 6.01943 16.5914 8.96173 18.9109C10 19.7294 11 20.5 12 20.5C13 20.5 14 19.7294 15.0383 18.9109C17.9806 16.5914 22 14 22 9.1371C22 4.27416 16.4998 0.825464 12 5.50063C7.50016 0.825464 2 4.27416 2 9.1371Z" fill="currentColor"/>'
-            r'</svg>'
-        )
         tag_html_block = r'<div class="wcc_gal_tag" ##stl## >###</div>'
         tags_stack_block = r'<div class="wcc_tag_stack">###</div>'
         fav_heart_svg = (
@@ -240,18 +175,10 @@ class WildcardEntry:
             tag_body = fav_heart_svg if tag == "fav" else html_mod.escape(tag)
             tags_stack += tag_html_block.replace("##stl##", tag_cfg).replace("###", tag_body)
         return tags_stack_block.replace("###", tags_stack)
-            tag_cfg = config_block.replace("##tx_col##", config.tx_color).replace("##bg_col##", config.bg_color) if config else ""
-            tag_body = fav_heart_svg if tag == "fav" else html_mod.escape(tag)
-            tags_stack += tag_html_block.replace("##stl##", tag_cfg).replace("###", tag_body)
-        return tags_stack_block.replace("###", tags_stack)
 
-    def to_galley_item(self, is_selected=False, img_channel="", config_dict: dict[str, 'TagConfig'] = {}, stack_count=1, stack_name="", hidden_tag_groups=[]):
     def to_galley_item(self, is_selected=False, img_channel="", config_dict: dict[str, 'TagConfig'] = {}, stack_count=1, stack_name="", hidden_tag_groups=[]):
         select_symb = r'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"> <path d="M9 16.2l-4.2-4.2 1.4-1.4L9 13.4l7.8-7.8 1.4 1.4L9 16.2z"></path> </svg>'
         stack_tag = f'<div class="wcc_stack_tag">{stack_count} Cards</div>'
-        main_html_block = r'<div class="wcc_gal_item " ##img## >##stk## <div class="shine"></div>###</div>'
-        display_name = stack_name if stack_count > 1 else self.name
-        generated_block = f'<div class="wcc_gal_label">{html_mod.escape(display_name)}</div>'
         main_html_block = r'<div class="wcc_gal_item " ##img## >##stk## <div class="shine"></div>###</div>'
         display_name = stack_name if stack_count > 1 else self.name
         generated_block = f'<div class="wcc_gal_label">{html_mod.escape(display_name)}</div>'
@@ -270,9 +197,6 @@ class WildcardEntry:
             main_html_block = main_html_block.replace("##stk##", "")
         main_html_block = main_html_block.replace("wcc_gal_item", "wcc_gal_item wcc_item_selected ") if is_selected else main_html_block
         main_html_block = main_html_block.replace("###", select_symb + "###")
-            main_html_block = main_html_block.replace("##stk##", "")
-        main_html_block = main_html_block.replace("wcc_gal_item", "wcc_gal_item wcc_item_selected ") if is_selected else main_html_block
-        main_html_block = main_html_block.replace("###", select_symb + "###")
 
         if "All" not in hidden_tag_groups:
             generated_block = self.html_tag_stack(config_dict, hide_masked="Masked Tags" in hidden_tag_groups, masked_groups=hidden_tag_groups) + generated_block
@@ -285,12 +209,6 @@ class WildcardEntry:
 @dataclass
 class TagConfig:
     config_name: str
-    bg_color: str = field(default="#2b527b8a")
-    tx_color: str = field(default="white")
-    masked: bool = field(default=False)
-    members: list[str] = field(default_factory=list)
-    added_prompt: str = field(default="")
-
     bg_color: str = field(default="#2b527b8a")
     tx_color: str = field(default="white")
     masked: bool = field(default=False)
@@ -337,8 +255,8 @@ class TagConfig:
             print(f"Error parsing JSON in {file_path}: {e}")
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
+        
         return []
-
 
 
 def get_base_url(request: Request):
@@ -359,17 +277,7 @@ def load_base_url():
 ALLOWED_MIME_PREFIXES = ("image/",)
 
 
-
-ALLOWED_MIME_PREFIXES = ("image/",)
-
-
 def fetch_img(filename: str = ""):
-    if not filename:
-        raise HTTPException(status_code=400, detail="Missing filename parameter")
-
-    resolved = os.path.realpath(filename)
-
-    if not os.path.isfile(resolved):
     if not filename:
         raise HTTPException(status_code=400, detail="Missing filename parameter")
 
@@ -397,36 +305,11 @@ def fetch_img(filename: str = ""):
 
     return FileResponse(resolved, headers={"Accept-Ranges": "bytes"}, media_type=content_type)
 
-    try:
-        resolved_dir = os.path.dirname(resolved)
-        resolved_cards = os.path.realpath(CARDS_FOLDER)
-        resolved_res = os.path.realpath(RES_FOLDER)
-        content_type, _ = mimetypes.guess_type(resolved)
-    except (ValueError, OSError):
-        raise HTTPException(status_code=403, detail="File out of addon directory")
-
-    in_cards = os.path.commonpath([resolved_cards, resolved_dir]) == resolved_cards
-    in_res = os.path.commonpath([resolved_res, resolved_dir]) == resolved_res
-
-    if not (in_cards or in_res):
-        raise HTTPException(status_code=403, detail="File out of addon directory")
-
-    if not content_type or not content_type.startswith(ALLOWED_MIME_PREFIXES):
-        raise HTTPException(status_code=415, detail="Unsupported media type")
-
-    return FileResponse(resolved, headers={"Accept-Ranges": "bytes"}, media_type=content_type)
-
-
-def link_img(filename, ver=1, absolute=False):
-    if not filename:
-        return ""
 
 def link_img(filename, ver=1, absolute=False):
     if not filename:
         return ""
     quoted_filename = urllib.parse.quote(filename.replace('\\', '/'))
-    return f"/wcc_cards/img?filename={quoted_filename}&v={ver}"
-
     return f"/wcc_cards/img?filename={quoted_filename}&v={ver}"
 
 
@@ -436,7 +319,6 @@ def copy_with_directories(src, dst):
         shutil.copy2(src, dst)
     except Exception as e:
         print(f"failed to copy [{src}]")
-
 
 
 def find_ext_wildcard_paths():
@@ -457,8 +339,6 @@ def find_ext_wildcard_paths():
     custom_paths = [
         getattr(shared.cmd_opts, "wildcards_dir", None),
         getattr(opts, "wildcard_dir", None),
-        getattr(shared.cmd_opts, "wildcards_dir", None),
-        getattr(opts, "wildcard_dir", None),
     ]
     for path in [Path(p).absolute() for p in custom_paths if p is not None]:
         if path.exists():
@@ -467,17 +347,13 @@ def find_ext_wildcard_paths():
     return [str(x) for x in found]
 
 
-
 def silentremove(filename):
     try:
         os.remove(filename)
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
-            raise
 
-
-def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool = False, collect_sub_cards: bool = False) -> dict[str, WildcardEntry]:
 
 def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool = False, collect_sub_cards: bool = False) -> dict[str, WildcardEntry]:
     collected_wildcards = {}
@@ -555,14 +431,7 @@ def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool =
 
 
 def scanned_data_as_wildcard(node_path: str, prompt: str = "", file_origin_path: str = ""):
-
-def scanned_data_as_wildcard(node_path: str, prompt: str = "", file_origin_path: str = ""):
     card_name = node_path.split("/")[-1]
-    prompt_str = "||".join(str(p) for p in prompt if p is not None) if isinstance(prompt, list) else f"{prompt}"
-    wildcard_obj = WildcardEntry(name=card_name,
-                                 path=node_path,
-                                 prompts=prompt_str,
-                                 file_origin=file_origin_path)
     prompt_str = "||".join(str(p) for p in prompt if p is not None) if isinstance(prompt, list) else f"{prompt}"
     wildcard_obj = WildcardEntry(name=card_name,
                                  path=node_path,
@@ -573,7 +442,6 @@ def scanned_data_as_wildcard(node_path: str, prompt: str = "", file_origin_path:
 
 
 def get_yaml_paths(yaml_file_path, separator="/") -> list[str]:
-def get_yaml_paths(yaml_file_path, separator="/") -> list[str]:
     def traverse(data, path=''):
         if isinstance(data, dict):
             for key, value in data.items():
@@ -583,7 +451,6 @@ def get_yaml_paths(yaml_file_path, separator="/") -> list[str]:
             paths.add(path)
 
     try:
-        with open(yaml_file_path, 'r') as file:
         with open(yaml_file_path, 'r') as file:
             data = yaml.safe_load(file)
         paths = set()
@@ -601,13 +468,11 @@ def get_yaml_paths(yaml_file_path, separator="/") -> list[str]:
 
 
 def get_yaml_nodes(yaml_file_path: Union[str, IO], separator: str = "/", deep_scan: bool = False) -> dict[str, str]:
-def get_yaml_nodes(yaml_file_path: Union[str, IO], separator: str = "/", deep_scan: bool = False) -> dict[str, str]:
     def traverse(data, path=''):
         if isinstance(data, dict):
             for key, value in data.items():
                 new_path = f"{path}{separator}{key}" if path else key
                 traverse(value, new_path)
-        elif isinstance(data, list) and len(data) > 1 and deep_scan:
         elif isinstance(data, list) and len(data) > 1 and deep_scan:
             for index, item in enumerate(data):
                 new_path = f"{path}{separator}[{index}]"
@@ -616,8 +481,6 @@ def get_yaml_nodes(yaml_file_path: Union[str, IO], separator: str = "/", deep_sc
             result[path] = data
 
     try:
-        if isinstance(yaml_file_path, str):
-            with open(yaml_file_path, 'r') as file:
         if isinstance(yaml_file_path, str):
             with open(yaml_file_path, 'r') as file:
                 data = yaml.safe_load(file)
@@ -642,7 +505,6 @@ def get_yaml_nodes(yaml_file_path: Union[str, IO], separator: str = "/", deep_sc
 
 
 def get_txt_content(file_path: str) -> str:
-def get_txt_content(file_path: str) -> str:
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
@@ -655,7 +517,6 @@ def get_txt_content(file_path: str) -> str:
     return ""
 
 
-def get_txt_lines(file_path: str) -> list[str]:
 def get_txt_lines(file_path: str) -> list[str]:
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -670,40 +531,30 @@ def get_txt_lines(file_path: str) -> list[str]:
 
 
 def get_safe_name(selected_wild_path, wild_paths_list, inclusion_level=2):
-def get_safe_name(selected_wild_path, wild_paths_list, inclusion_level=2):
     path_parts = selected_wild_path.split('/')
     if len(path_parts) > inclusion_level:
         parent = path_parts[-inclusion_level - 1]
-        parent = path_parts[-inclusion_level - 1]
     else:
         parent = ""
-
 
     curated_format_sel = '/'.join(path_parts[-inclusion_level:])
     curated_format_list = ['/'.join(wild_path.split('/')[-inclusion_level:]) for wild_path in wild_paths_list]
 
     occurance_count = curated_format_list.count(curated_format_sel)
     if occurance_count > 1:
-
-    occurance_count = curated_format_list.count(curated_format_sel)
-    if occurance_count > 1:
         count = curated_format_list.count(curated_format_sel) + 1
         suffix = parent if parent else count
         return f"{curated_format_sel}({suffix})", parent
-        return f"{curated_format_sel}({suffix})", parent
     else:
         return curated_format_sel, parent
-        return curated_format_sel, parent
 
 
-def get_safe_name_2(selected_wild_path, wild_paths_list):
 def get_safe_name_2(selected_wild_path, wild_paths_list):
     path_parts = selected_wild_path.split('/')
     parent = path_parts[-2] if len(path_parts) > 1 else ""
     aux_fallback_parent = path_parts[-3] if len(path_parts) > 2 else ""
 
     curated_format_list = ['/'.join(wild_path.split('/')[-2:]) for wild_path in wild_paths_list]
-
 
     occurance_count = 0
     occurance_count = curated_format_list.count('/'.join(path_parts[-1:]))
@@ -712,31 +563,18 @@ def get_safe_name_2(selected_wild_path, wild_paths_list):
     if occurance_count_aux > 1:
         suffix = f"{aux_fallback_parent}/{parent}" if aux_fallback_parent else f"{parent}({occurance_count_aux + 1})"
         return f"{path_parts[-1]}({suffix})", parent
-    occurance_count = curated_format_list.count('/'.join(path_parts[-1:]))
-    occurance_count_aux = curated_format_list.count('/'.join(path_parts[-2:]))
-
-    if occurance_count_aux > 1:
-        suffix = f"{aux_fallback_parent}/{parent}" if aux_fallback_parent else f"{parent}({occurance_count_aux + 1})"
-        return f"{path_parts[-1]}({suffix})", parent
     else:
-        occurance_count_str = "" if occurance_count == 0 else f"({occurance_count + 1})"
         occurance_count_str = "" if occurance_count == 0 else f"({occurance_count + 1})"
         suffix = parent if parent else occurance_count_str
         return f"{path_parts[-1]}({suffix})", parent
-        return f"{path_parts[-1]}({suffix})", parent
 
 
-def create_dir_and_file(parent_dir, path, extentsion=".card") -> str:
-    if os.path.dirname(path):
 def create_dir_and_file(parent_dir, path, extentsion=".card") -> str:
     if os.path.dirname(path):
         dir_path, file_name = os.path.split(path)
         full_dir_path = os.path.join(parent_dir, dir_path)
         os.makedirs(full_dir_path, exist_ok=True)
-        full_dir_path = os.path.join(parent_dir, dir_path)
-        os.makedirs(full_dir_path, exist_ok=True)
         file_path = os.path.join(full_dir_path, file_name + extentsion)
-    else:
     else:
         file_path = os.path.join(parent_dir, path + extentsion)
 
@@ -744,12 +582,9 @@ def create_dir_and_file(parent_dir, path, extentsion=".card") -> str:
         path_entry = Path(file_path)
         path_entry.parent.mkdir(parents=True, exist_ok=True)
         path_entry.touch()
-        path_entry.touch()
 
     return file_path
 
-
-def clean_residue(cards_dir, wildcards_list, extentsion=".card"):
 
 def clean_residue(cards_dir, wildcards_list, extentsion=".card"):
     stay_cards_list = []
@@ -765,39 +600,21 @@ def clean_residue(cards_dir, wildcards_list, extentsion=".card"):
                     stay_cards_list.append(file_path)
                     silentremove(file_path)
 
-            if file.lower().endswith(extentsion):
-                file_path = os.path.join(root, file)
-                relative_file_path = os.path.relpath(file_path, cards_dir)
-                fromatted_path = relative_file_path.replace(os.path.sep, "/").replace(extentsion, "").upper()
-
-                if fromatted_path not in (wildcard.upper() for wildcard in wildcards_list):
-                    stay_cards_list.append(file_path)
-                    silentremove(file_path)
-
         for dirname in dirs:
             dir_to_check = os.path.join(root, dirname)
             if not os.listdir(dir_to_check):
                 os.rmdir(dir_to_check)
                 residue_folders_list.append(dir_to_check)
-                residue_folders_list.append(dir_to_check)
 
     if stay_cards_list:
         print(f'______ {len(stay_cards_list)} Wildcards Altered______')
     if residue_folders_list:
         print(f'______ {len(residue_folders_list)} Eedundant Folders Cleared______')
 
-    if stay_cards_list:
-        print(f'______ {len(stay_cards_list)} Wildcards Altered______')
-    if residue_folders_list:
-        print(f'______ {len(residue_folders_list)} Eedundant Folders Cleared______')
 
-
-def collect_previews_by_channel(channel, wildpath_selector, cards_dir=CARDS_FOLDER):
 def collect_previews_by_channel(channel, wildpath_selector, cards_dir=CARDS_FOLDER):
     collected_previews_list = []
     msg = "no wildcard previews were collected"
-    channel_suffix = "." + channel.replace(" ", "") if (not channel == "") and (not channel == "default") and channel else ""
-    os.makedirs(COLL_PREV_folder, exist_ok=True)
     channel_suffix = "." + channel.replace(" ", "") if (not channel == "") and (not channel == "default") and channel else ""
     os.makedirs(COLL_PREV_folder, exist_ok=True)
     for root, dirs, files in os.walk(cards_dir):
@@ -811,22 +628,7 @@ def collect_previews_by_channel(channel, wildpath_selector, cards_dir=CARDS_FOLD
                         collected_previews_list.append(file_path)
                         match_found = True
                         break
-        for file in files:
-            if (file.lower().endswith(f"{channel_suffix}.jpeg") or file.lower().endswith(f"{channel_suffix}.jpg") or file.lower().endswith(f"{channel_suffix}.png") or file.lower().endswith(f"{channel_suffix}.gif")) and (channel != "default" or (channel == "default" and file.lower().count(".") == 1)):
-                match_found = False
-                for wpath in wildpath_selector:
-                    save_file_name = os.path.join(os.path.abspath(cards_dir), wpath.replace("/", os.path.sep)) + "."
-                    file_path = os.path.abspath(os.path.join(root, file))
-                    if file_path.lower().startswith(save_file_name.lower()):
-                        collected_previews_list.append(file_path)
-                        match_found = True
-                        break
 
-                if match_found:
-                    dest_file_path = os.path.join(COLL_PREV_folder, os.path.relpath(collected_previews_list[-1], CARDS_FOLDER))
-                    copy_with_directories(src=collected_previews_list[-1], dst=dest_file_path)
-
-    if collected_previews_list:
                 if match_found:
                     dest_file_path = os.path.join(COLL_PREV_folder, os.path.relpath(collected_previews_list[-1], CARDS_FOLDER))
                     copy_with_directories(src=collected_previews_list[-1], dst=dest_file_path)
@@ -839,12 +641,8 @@ def collect_previews_by_channel(channel, wildpath_selector, cards_dir=CARDS_FOLD
 
 
 def delete_previews_by_channel(channel, wildpath_selector, cards_dir=CARDS_FOLDER):
-
-def delete_previews_by_channel(channel, wildpath_selector, cards_dir=CARDS_FOLDER):
     collected_previews_list = []
     msg = "no wildcard previews were deleted"
-    channel_suffix = "." + channel.replace(" ", "") if (not channel == "") and (not channel == "default") and channel else ""
-    os.makedirs(COLL_PREV_folder, exist_ok=True)
     channel_suffix = "." + channel.replace(" ", "") if (not channel == "") and (not channel == "default") and channel else ""
     os.makedirs(COLL_PREV_folder, exist_ok=True)
     for root, dirs, files in os.walk(cards_dir):
@@ -858,25 +656,7 @@ def delete_previews_by_channel(channel, wildpath_selector, cards_dir=CARDS_FOLDE
                         collected_previews_list.append(file_path)
                         match_found = True
                         break
-            if (file.lower().endswith(f"{channel_suffix}.jpeg") or file.lower().endswith(f"{channel_suffix}.jpg") or file.lower().endswith(f"{channel_suffix}.png") or file.lower().endswith(f"{channel_suffix}.gif")) and (channel != "default" or (channel == "default" and file.lower().count(".") == 1)):
-                match_found = False
-                for wpath in wildpath_selector:
-                    save_file_name = os.path.join(os.path.abspath(cards_dir), wpath.replace("/", os.path.sep)) + "."
-                    file_path = os.path.abspath(os.path.join(root, file))
-                    if file_path.lower().startswith(save_file_name.lower()):
-                        collected_previews_list.append(file_path)
-                        match_found = True
-                        break
 
-                if match_found:
-                    print(file.lower().endswith(f"{channel_suffix}.jpeg") or file.lower().endswith(f"{channel_suffix}.jpg") or file.lower().endswith(f"{channel_suffix}.png"))
-                    print(file.lower().endswith(f"{channel_suffix}.gif") and (channel != "default" or (channel == "default" and file.lower().count(".") == 1)))
-                    try:
-                        silentremove(collected_previews_list[-1])
-                    except OSError:
-                        print(f"failed to delete [{os.path.join(root, file)}]")
-
-    if collected_previews_list:
                 if match_found:
                     print(file.lower().endswith(f"{channel_suffix}.jpeg") or file.lower().endswith(f"{channel_suffix}.jpg") or file.lower().endswith(f"{channel_suffix}.png"))
                     print(file.lower().endswith(f"{channel_suffix}.gif") and (channel != "default" or (channel == "default" and file.lower().count(".") == 1)))
@@ -892,10 +672,7 @@ def delete_previews_by_channel(channel, wildpath_selector, cards_dir=CARDS_FOLDE
 
 
 def collect_stray_previews(wild_paths, cards_dir=CARDS_FOLDER):
-def collect_stray_previews(wild_paths, cards_dir=CARDS_FOLDER):
     stay_previews_list = []
-    os.makedirs(STRAY_RES_folder, exist_ok=True)
-
     os.makedirs(STRAY_RES_folder, exist_ok=True)
 
     if wild_paths:
@@ -920,33 +697,23 @@ def collect_stray_previews(wild_paths, cards_dir=CARDS_FOLDER):
                             print(f"[{EXT_NAME}]> failed to collect [{os.path.join(root, file)}]")
     else:
         print(f'______ No wildcards were loaded in______')
-        print(f'______ No wildcards were loaded in______')
 
-    if stay_previews_list:
     if stay_previews_list:
         print(f'______ {len(stay_previews_list)} stray previews collected in [{STRAY_RES_folder}]______')
 
 
 def save_tag_config(tag_config_list: list[TagConfig], parent_dir=META_FOLDER, target_file="tags_config.json") -> bool:
     file_path = os.path.join(parent_dir, target_file)
-def save_tag_config(tag_config_list: list[TagConfig], parent_dir=META_FOLDER, target_file="tags_config.json") -> bool:
-    file_path = os.path.join(parent_dir, target_file)
     if not os.path.exists(file_path):
-        fl_nm, fl_ext = os.path.splitext(target_file)
-        file_path = create_dir_and_file(parent_dir, fl_nm, extentsion=".json")
-
         fl_nm, fl_ext = os.path.splitext(target_file)
         file_path = create_dir_and_file(parent_dir, fl_nm, extentsion=".json")
 
     try:
         with open(file_path, "w") as file:
             json.dump([asdict(cfg) for cfg in tag_config_list], file, indent=4)
-            json.dump([asdict(cfg) for cfg in tag_config_list], file, indent=4)
             print(f"updated tag config data")
             return True
     except Exception as e:
-        print(f"unable to update tag config data on {file_path}")
-        print(f"Error: {e}")
         print(f"unable to update tag config data on {file_path}")
         print(f"Error: {e}")
     return False
@@ -954,24 +721,16 @@ def save_tag_config(tag_config_list: list[TagConfig], parent_dir=META_FOLDER, ta
 
 def save_tags(tags_dict: dict[str: list[str]], parent_dir=META_FOLDER, target_file="tags_data.json") -> bool:
     file_path = os.path.join(parent_dir, target_file)
-
-def save_tags(tags_dict: dict[str: list[str]], parent_dir=META_FOLDER, target_file="tags_data.json") -> bool:
-    file_path = os.path.join(parent_dir, target_file)
     if not os.path.exists(file_path):
-        fl_nm, fl_ext = os.path.splitext(target_file)
-        file_path = create_dir_and_file(parent_dir, fl_nm, extentsion=".json")
-
         fl_nm, fl_ext = os.path.splitext(target_file)
         file_path = create_dir_and_file(parent_dir, fl_nm, extentsion=".json")
 
     try:
         with open(file_path, "w") as file:
             json.dump(tags_dict, file, indent=4)
-            json.dump(tags_dict, file, indent=4)
             print(f"updated tags data")
             return True
     except Exception:
-        print(f"unable to update tags data on {file_path}")
         print(f"unable to update tags data on {file_path}")
     return False
 
@@ -1064,11 +823,6 @@ def unpack_wildcard_pack(pack_path) -> str:
     zip_cards_sub_path = "cards/"
     zip_tags_file = "metadata/tags_data.json"
 
-
-def unpack_wildcard_pack(pack_path) -> str:
-    zip_cards_sub_path = "cards/"
-    zip_tags_file = "metadata/tags_data.json"
-
     tags_db_file = os.path.join(META_FOLDER, "tags_data.json")
     traget_dir = os.path.join(WILDCARDS_FOLDER, ADDED_WILDCARDS_FOLDER, "imported")
 
@@ -1080,32 +834,7 @@ def unpack_wildcard_pack(pack_path) -> str:
             return True
         return any(lower.endswith(ext) for ext in VALID_IMG_EXT)
 
-    traget_dir = os.path.join(WILDCARDS_FOLDER, ADDED_WILDCARDS_FOLDER, "imported")
-
-    def _is_card_like(name: str) -> bool:
-        if name.endswith('/'):
-            return False
-        lower = name.lower()
-        if lower.endswith('.card'):
-            return True
-        return any(lower.endswith(ext) for ext in VALID_IMG_EXT)
-
     with zipfile.ZipFile(pack_path, 'r') as zip_ref:
-        namelist = zip_ref.namelist()
-
-        has_standard_cards = any(
-            m.startswith(zip_cards_sub_path) and not m.endswith('/')
-            for m in namelist
-        )
-
-        for member in namelist:
-            if member.endswith('/'):
-                continue
-
-            is_standard_card = has_standard_cards and member.startswith(zip_cards_sub_path)
-            is_fallback_card = not has_standard_cards and _is_card_like(member)
-
-            if is_standard_card or is_fallback_card:
         namelist = zip_ref.namelist()
 
         has_standard_cards = any(
@@ -1164,40 +893,28 @@ def unpack_wildcard_pack(pack_path) -> str:
 
 def process_selector(wild_path_selector, wild_paths) -> list[str]:
     selected_wildcards = []
-
-
-def process_selector(wild_path_selector, wild_paths) -> list[str]:
-    selected_wildcards = []
     if wild_path_selector and wild_paths:
-        wild_path_selector = wild_path_selector.replace("*", "").replace(WILD_STR, "").strip()
         wild_path_selector = wild_path_selector.replace("*", "").replace(WILD_STR, "").strip()
         selected_wildcards = [item for item in wild_paths if item.lower().startswith(wild_path_selector.lower())]
     return selected_wildcards
 
 
 def update_wildcard_yaml(wild_path: str = "", prompt: str = "", parent_dir=WILDCARDS_FOLDER, file_name: str = SHARED_ASSESTS["custom_yaml"]) -> WildcardEntry | None:
-
-def update_wildcard_yaml(wild_path: str = "", prompt: str = "", parent_dir=WILDCARDS_FOLDER, file_name: str = SHARED_ASSESTS["custom_yaml"]) -> WildcardEntry | None:
     wild_path = wild_path.strip()
     prompt = prompt.strip(" , ")
-    prompt = prompt.strip(" , ")
 
-    if not os.path.isdir(parent_dir) or not (wild_path or prompt) or wild_path.endswith('/'):
     if not os.path.isdir(parent_dir) or not (wild_path or prompt) or wild_path.endswith('/'):
         print("Wildcard creation canceld due to invalid paramaters")
         return None
     prompt += ", "
-    prompt += ", "
     path_parts = wild_path.split('/')
     nested_dict = prompt_to_nested_dict(path_parts, prompt)
-    file_path = os.path.normpath(os.path.join(parent_dir, file_name + ".yaml"))
     file_path = os.path.normpath(os.path.join(parent_dir, file_name + ".yaml"))
 
     if os.path.exists(file_path):
         with open(file_path, "r") as file:
             existing_data = yaml.safe_load(file) or {}
     else:
-        file_path = create_dir_and_file(parent_dir, file_name, extentsion=".yaml")
         file_path = create_dir_and_file(parent_dir, file_name, extentsion=".yaml")
         existing_data = {}
 
@@ -1207,15 +924,11 @@ def update_wildcard_yaml(wild_path: str = "", prompt: str = "", parent_dir=WILDC
         yaml.dump(merged_data, file, default_flow_style=False, sort_keys=False, indent=2)
     return WildcardEntry(name=path_parts[-1], path=wild_path, prompts=prompt)
 
-        yaml.dump(merged_data, file, default_flow_style=False, sort_keys=False, indent=2)
-    return WildcardEntry(name=path_parts[-1], path=wild_path, prompts=prompt)
-
 
 def prompt_to_nested_dict(path_parts: list, prompt: str):
     if len(path_parts) == 1:
         return {path_parts[0]: [prompt]}
     return {path_parts[0]: prompt_to_nested_dict(path_parts[1:], prompt)}
-
 
 
 def merge_dicts(dict1: dict, dict2: dict):
@@ -1233,20 +946,14 @@ def merge_dicts(dict1: dict, dict2: dict):
 
 
 def zip_folder(folder_path: str, zip_name: str, extension=".zip", post_delete=False):
-
-def zip_folder(folder_path: str, zip_name: str, extension=".zip", post_delete=False):
     folder = Path(folder_path)
     with zipfile.ZipFile(zip_name + extension, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for file in folder.rglob('*'):
-            zipf.write(file, file.relative_to(folder))
         for file in folder.rglob('*'):
             zipf.write(file, file.relative_to(folder))
     if post_delete:
         shutil.rmtree(folder_path)
 
 
-
-def export_cards_pack(selected_cards: list[WildcardEntry], save_name: str = "", save_dir: str = COLL_PREV_folder, img_channels: list[str] = IMG_CHANNELS, exclude_Masked_Tags=False, config_dict={}):
 def export_cards_pack(selected_cards: list[WildcardEntry], save_name: str = "", save_dir: str = COLL_PREV_folder, img_channels: list[str] = IMG_CHANNELS, exclude_Masked_Tags=False, config_dict={}):
     save_name = save_name if save_name else f"wildpack_{int(time.time())}"
     save_dir = os.path.join(save_dir, save_name)
@@ -1254,7 +961,6 @@ def export_cards_pack(selected_cards: list[WildcardEntry], save_name: str = "", 
     exp_img_path = os.path.join(save_dir, "cards")
     exp_tag_dict = {}
     export_status = bool(selected_cards)
-
 
     for entry in selected_cards:
         for tag in entry.tags:
@@ -1264,14 +970,7 @@ def export_cards_pack(selected_cards: list[WildcardEntry], save_name: str = "", 
         export_status = export_status and update_wildcard_yaml(file_name=save_name, parent_dir=save_dir, prompt=entry.prompts, wild_path=entry.path)
 
     export_status = export_status and save_tags(parent_dir=exp_tags_path, tags_dict=exp_tag_dict)
-            if not (exclude_Masked_Tags and config_dict and config_dict.get(tag) and config_dict.get(tag).masked):
-                exp_tag_dict[tag] = exp_tag_dict.get(tag, []) + [entry.path]
-        entry.collect_channel_img(dest_dir=exp_img_path, channels=img_channels)
-        export_status = export_status and update_wildcard_yaml(file_name=save_name, parent_dir=save_dir, prompt=entry.prompts, wild_path=entry.path)
-
-    export_status = export_status and save_tags(parent_dir=exp_tags_path, tags_dict=exp_tag_dict)
     if export_status:
-        zip_folder(save_dir, save_dir, post_delete=True)
         zip_folder(save_dir, save_dir, post_delete=True)
         print(f"Exported {len(selected_cards)} cards and {len(exp_tag_dict)} tags to [{save_dir}.zip]")
     return export_status
@@ -1280,16 +979,11 @@ def export_cards_pack(selected_cards: list[WildcardEntry], save_name: str = "", 
 def wildpack_info_scan(wildpack_file_path):
     cards_sub_path = "cards/"
     tags_sub_file = "metadata/tags_data.json"
-    cards_sub_path = "cards/"
-    tags_sub_file = "metadata/tags_data.json"
     yaml_nodes = []
     thumbnails_imgs = []
     got_tags = False
     if os.path.exists(wildpack_file_path):
-    if os.path.exists(wildpack_file_path):
         with zipfile.ZipFile(wildpack_file_path, 'r') as zip_ref:
-            namelist = zip_ref.namelist()
-            for member in namelist:
             namelist = zip_ref.namelist()
             for member in namelist:
                 if member.startswith(cards_sub_path):
@@ -1312,29 +1006,12 @@ def wildpack_info_scan(wildpack_file_path):
                     if any(lower.endswith(ext) for ext in VALID_IMG_EXT):
                         thumbnails_imgs.append(member)
 
-                        yaml_nodes = get_yaml_nodes(yaml_file_path=decoded_io, deep_scan=True)
-
-            if not thumbnails_imgs:
-                for member in namelist:
-                    if member.endswith('/'):
-                        continue
-                    lower = member.lower()
-                    if any(lower.endswith(ext) for ext in VALID_IMG_EXT):
-                        thumbnails_imgs.append(member)
-
     return yaml_nodes, thumbnails_imgs, got_tags
 
 
 def html_simple_list(items: list):
     list_wraper = "<ul>"
-
-
-def html_simple_list(items: list):
-    list_wraper = "<ul>"
     for item in items:
-        list_wraper += f"<li> {html_mod.escape(str(item))} </li>"
-    return list_wraper + "</ul>"
-
         list_wraper += f"<li> {html_mod.escape(str(item))} </li>"
     return list_wraper + "</ul>"
 
