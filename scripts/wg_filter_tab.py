@@ -13,12 +13,22 @@ TAB_NAME = "Wildcards Filter"
 EXT_HANDEL = "wcc"
 ITEMS_CAP = 25
 rebuild_callback = None
+<<<<<<< gradio3xx-4xx-compatibility
 wildcards_dict: dict[str, WildcardEntry] = {}
 tags_dict: dict[str, list[str]] = {}
 tag_config_dict: dict[str, TagConfig] = {}
 tag_config_groups: dict[str, TagConfig] = {}
 filter_modes = ["wildcard", "selector text", "tags", "prompt search"]
 filter_logic = ["AND", "OR"]
+=======
+wildcards_dict:dict[str,WildcardEntry]  = {}
+tags_dict:dict[str,list[str]]           = {}
+tag_config_dict:dict[str,TagConfig]     = {}
+tag_config_groups:dict[str,TagConfig]     = {}
+filter_modes = ["wildcard","selector text","tags", "prompt search"]
+card_select_modes = {False:"Single", True:"Stack"}
+filter_logic = ["AND","OR"]
+>>>>>>> main
 
 selection_modes = ["Selected Only", "All filtered Results"]
 import_modes = ["Standalone File", "Merge"]
@@ -688,8 +698,13 @@ def act_deselect_all():
 def act_change_sel_mode():
     global multi_selection_mode
     multi_selection_mode = not multi_selection_mode
+<<<<<<< gradio3xx-4xx-compatibility
     mode_text = "Stack" if multi_selection_mode else "Single"
     return (gr.update(value=f"Select Mode [{mode_text}]"))
+=======
+    mode_text = card_select_modes[multi_selection_mode] 
+    return ( gr.update( value = f"Select Mode [{mode_text}]") )
+>>>>>>> main
 
 
 def act_hide_tags(selected_tag_groups):
@@ -1175,6 +1190,7 @@ def on_ui_tabs():
                 with gr.Row():
                     disp_results = gr.HTML("No Filter operation mid execution.", elem_classes="info_log_block")
                     with gr.Row(elem_id="wcc_filter_acts"):
+<<<<<<< gradio3xx-4xx-compatibility
                         sel_none_fil_btn = gr.Button("None", elem_classes="wcc_status_btn")
                         sel_all_fil_btn = gr.Button("ALL", elem_classes="wcc_status_btn")
                         sel_mode_btn = gr.Button("Select Mode [Multi]", elem_classes="wcc_status_btn")
@@ -1194,6 +1210,21 @@ def on_ui_tabs():
                     btn_pg_jump = gr.Button("Go", visible=False)
                     btn_pg_next = gr.Button("\u25B6", visible=False)
 
+=======
+                            sel_none_fil_btn = gr.Button("None", elem_classes="wcc_status_btn")
+                            sel_all_fil_btn  = gr.Button("ALL", elem_classes="wcc_status_btn")
+                            sel_mode_btn  = gr.Button(f"Select Mode [{card_select_modes[True]}]", elem_classes="wcc_status_btn")
+                            btn_create_mode     = gr.Button("➕ Create New Card", visible=True, elem_classes="wcc_status_btn")
+                            
+                wcards_selector = gr.Textbox(visible= False, interactive=False)
+                coll_flt_res = gr.Dataset(visible= False,  label="wildcards", elem_id="wcc_fil_cards_gal", components=[gr.HTML(elem_classes=["wcc_fil_card"])], samples= [[i] for i in range(0, ITEMS_CAP)], samples_per_page=ITEMS_CAP+1 , type="index")
+                with gr.Row( elem_id= "wcc_pag_div") :
+                    btn_pg_prev = gr.Button("\u25C0", visible= False)
+                    tx_pg_jump = gr.Textbox(label="page", visible= False)
+                    btn_pg_jump = gr.Button("Go", visible= False)
+                    btn_pg_next = gr.Button("\u25B6", visible= False)
+            
+>>>>>>> main
         with gr.Accordion("Import Wildcards Pack", open=False):
             with gr.Row():
                 file_browse_wp = gr.File(file_count="single", type='filepath' if IS_GRADIO_4 else 'file', file_types=[".zip"], label="Wildcard pack", show_label=True)

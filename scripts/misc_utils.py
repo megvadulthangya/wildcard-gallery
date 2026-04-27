@@ -338,6 +338,7 @@ def silentremove(filename):
 
 def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool = False, collect_sub_cards: bool = False) -> dict[str, WildcardEntry]:
     collected_wildcards = {}
+<<<<<<< gradio3xx-4xx-compatibility
     txt_count = 0
     yaml_count = 0
 
@@ -407,6 +408,44 @@ def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool =
                         print(f"[{EXT_NAME}] Error processing YAML file {full_path}: {e}")
 
     print(f"[{EXT_NAME}] Processed {txt_count} .txt files and {yaml_count} .yaml files, total wildcards: {len(collected_wildcards)}")
+=======
+    whitelist  = [item for item in getattr(shared.opts, "wcc_wildcards_whitelist", "").split("\n") if item]
+    blacklist  = [item for item in getattr(shared.opts, "wcc_wildcards_blacklist", "").split("\n") if item]
+    no_whitelist = not whitelist
+    whitelist = whitelist + [SHARED_ASSESTS["custom_yaml"].split("/")[1]]
+
+    if not wildcards_dirs : print("___Wildcard Directories is not setup yet!___")
+    for wildcards_dir in wildcards_dirs :
+        if os.path.isdir(wildcards_dir):
+            for root, dirs, files in os.walk(wildcards_dir):
+                for file in files:
+                        if file.lower().endswith(".txt") :  
+                            wild_path_txt = os.path.relpath(os.path.join(root,file),wildcards_dir).replace(os.path.sep, "/").replace(".txt", "")
+                            if  ( no_whitelist or wild_path_txt in whitelist ) and (wild_path_txt not in blacklist):
+                                if collect_prompts and collect_sub_cards:
+                                    sub_txt_items =  get_txt_lines(os.path.join(root,file))
+                                    if len(sub_txt_items)==1:
+                                        collected_wildcards[wild_path_txt] = scanned_data_as_wildcard(node_path= wild_path_txt, prompt=sub_txt_items[0], file_origin_path= os.path.join(root,file)) 
+                                
+                                    else:
+                                        for i, item_data in enumerate(sub_txt_items):
+                                            indexed_wild_path = f"{wild_path_txt}[{i}]"
+                                            sub_txt_items[indexed_wild_path] = item_data
+                                else :
+                                    card_prompt = get_txt_content(os.path.join(root,file))  if collect_prompts else ""
+                                    collected_wildcards[wild_path_txt] = scanned_data_as_wildcard(node_path= wild_path_txt, prompt=card_prompt, file_origin_path= os.path.join(root,file))  
+                                    
+                                        
+                        elif file.lower().endswith(".yaml") :
+                            wild_yaml_name, ext = os.path.splitext(file)
+                            wild_yaml_name = wild_yaml_name.split(os.path.pathsep)[-1]
+                            if(no_whitelist or wild_yaml_name in whitelist) and (wild_yaml_name not in blacklist):
+                                new_scanned_cards = get_yaml_nodes(yaml_file_path= os.path.join(root, file) , deep_scan=collect_sub_cards)
+                                for card_path, card_prompt in new_scanned_cards.items():
+                                    collected_wildcards[card_path]= scanned_data_as_wildcard(node_path= card_path, prompt=card_prompt, file_origin_path= os.path.join(root, file))
+
+    
+>>>>>>> main
     return collected_wildcards
 
 
@@ -431,7 +470,7 @@ def get_yaml_paths(yaml_file_path, separator="/") -> list[str]:
             paths.add(path)
 
     try:
-        with open(yaml_file_path, 'r') as file:
+        with open(yaml_file_path, 'r' , encoding='utf-8') as file:
             data = yaml.safe_load(file)
         paths = set()
         traverse(data)
@@ -461,8 +500,13 @@ def get_yaml_nodes(yaml_file_path: Union[str, IO], separator: str = "/", deep_sc
             result[path] = data
 
     try:
+<<<<<<< gradio3xx-4xx-compatibility
         if isinstance(yaml_file_path, str):
             with open(yaml_file_path, 'r') as file:
+=======
+        if isinstance(yaml_file_path,str):
+            with open(yaml_file_path, 'r' , encoding='utf-8') as file:
+>>>>>>> main
                 data = yaml.safe_load(file)
         else:
             data = yaml.safe_load(yaml_file_path)
@@ -859,10 +903,26 @@ def unpack_wildcard_pack(pack_path) -> str:
 
                 with open(tags_db_file, 'w', encoding='utf-8') as f:
                     json.dump(merged_data, f, indent=2)
+<<<<<<< gradio3xx-4xx-compatibility
 
 
 def process_selector(wild_path_selector, wild_paths) -> list[str]:
     selected_wildcards = []
+=======
+    
+    if imported_yaml_name:
+        whitelist  = [item for item in getattr(shared.opts, "wcc_wildcards_whitelist", "").split("\n") if item]
+        if whitelist and imported_yaml_name not in whitelist:
+            whitelist.append(imported_yaml_name)
+            new_opt = "\n".join(whitelist)
+            setattr(shared.opts,"wcc_wildcards_whitelist",new_opt)
+            shared.opts.save(shared.config_filename)
+            print("Whitelist Settings Updated")
+
+
+def process_selector(wild_path_selector, wild_paths)-> list[str]:
+    selected_wildcards= []
+>>>>>>> main
     if wild_path_selector and wild_paths:
         wild_path_selector = wild_path_selector.replace("*", "").replace(WILD_STR, "").strip()
         selected_wildcards = [item for item in wild_paths if item.lower().startswith(wild_path_selector.lower())]
