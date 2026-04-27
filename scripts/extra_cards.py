@@ -8,8 +8,15 @@ from scripts.misc_utils import (
     WILDCARDS_FOLDER, CARDS_FOLDER, RES_FOLDER, WILD_STR, IMG_CHANNELS, EXT_NAME,
     WildcardEntry, load_tags, link_img, strip_trailing_number,
     load_hidden_wildcards, load_blacklist,
+    collect_Wildcards, clean_residue,
+    create_dir_and_file, fetch_img, get_safe_name_2, get_base_url,
+    WILDCARDS_FOLDER, CARDS_FOLDER, RES_FOLDER, WILD_STR, IMG_CHANNELS, EXT_NAME,
+    WildcardEntry, load_tags, link_img, strip_trailing_number,
+    load_hidden_wildcards, load_blacklist,
 )
 from scripts.wg_filter_tab import on_ui_tabs, init_filter_module
+from scripts.preview_processing import txt2img_prompting_process, txt2img_preview_process, normal_process
+from scripts.gradio_compat import js_kwarg, safe_info, safe_error
 from scripts.preview_processing import txt2img_prompting_process, txt2img_preview_process, normal_process
 from scripts.gradio_compat import js_kwarg, safe_info, safe_error
 import shutil
@@ -19,11 +26,15 @@ from fastapi import FastAPI
 
 
 wildcards_dict: dict[str, WildcardEntry] = {}
+wildcards_dict: dict[str, WildcardEntry] = {}
 filter_interr_fn = None
 
 extra_network_name = "Wildcards" 
 log_suffix = "[LOG] "
 error_suffix = "[ERR] "
+FILTER_EXTRACT_OPTS = ["all filter results", "selected cards only"]
+PROMPTER_OPTS = ["combine cards", "each card"]
+SCRIPT_MODES_OPTS = ["disabled", "batch prompting", "preview generation", "sequance generation"]
 FILTER_EXTRACT_OPTS = ["all filter results", "selected cards only"]
 PROMPTER_OPTS = ["combine cards", "each card"]
 SCRIPT_MODES_OPTS = ["disabled", "batch prompting", "preview generation", "sequance generation"]
@@ -37,6 +48,7 @@ class WildcardsCards(ExtraNetworksPage):
         self.cards: list[str] = None
         self.refresh()
 
+    def refresh(self, shallow_refresh=True):
     def refresh(self, shallow_refresh=True):
         global wildcards_dict
         global filter_interr_fn
@@ -64,9 +76,11 @@ class WildcardsCards(ExtraNetworksPage):
         prompt = f"{WILD_STR}{wild_path}{WILD_STR}"
 
         name, category = get_safe_name_2(wild_path, self.cards)
+        name, category = get_safe_name_2(wild_path, self.cards)
 
         metadata = {
             "activation text": prompt,
+            "notes": f"prompts: {raw_prompt}"
             "notes": f"prompts: {raw_prompt}"
         }
         return {
@@ -75,9 +89,11 @@ class WildcardsCards(ExtraNetworksPage):
             "shorthash": f"{hash(filePath)}",
             "preview": link_img(thumbnail, mtime),
             "local_preview": thumbnail,
+            "preview": link_img(thumbnail, mtime),
+            "local_preview": thumbnail,
             "description": self.find_description(path),
             "search_terms": [self.search_terms_from_path(filePath)],
-            "prompt": quote_js(prompt),
+            "prompt": quote_js(""),
             "user_metadata": metadata,
             "sort_keys": {
                 "default": f"{category.lower()}-{name.lower()}",
@@ -89,8 +105,12 @@ class WildcardsCards(ExtraNetworksPage):
 
     def list_items(self):
         hidden = load_hidden_wildcards()
+    def list_items(self):
+        hidden = load_hidden_wildcards()
         channel = getattr(shared.opts, "wcc_preview_channel", "default").strip()
         for index, (wpath, wentry) in enumerate(self.cards.items()):
+            if wpath in hidden:
+                continue
             if wpath in hidden:
                 continue
             if not wentry.is_preloaded:
@@ -99,7 +119,11 @@ class WildcardsCards(ExtraNetworksPage):
             yield self.create_item(wpath, index, tags=wentry.tags, raw_prompt=wentry.prompts, thumbnail=preview_file, mtime=wentry.last_update)
 
     def allowed_directories_for_previews(self):
+            yield self.create_item(wpath, index, tags=wentry.tags, raw_prompt=wentry.prompts, thumbnail=preview_file, mtime=wentry.last_update)
+
+    def allowed_directories_for_previews(self):
         return [CARDS_FOLDER]
+
 
 
 def on_ui_settings():
@@ -111,16 +135,23 @@ def on_ui_settings():
             "Wildcard Directory",
             gr.Textbox,
             lambda: {"interactive": True, "show_label": True},
+            lambda: {"interactive": True, "show_label": True},
             section=section,
         ),
     )
 
     shared.opts.add_option(
         key="wcc_preview_channel",
+        key="wcc_preview_channel",
         info=shared.OptionInfo(
             getattr(shared.opts, "wcc_preview_channel", "default"),
             "Main preview channel",
+            "Main preview channel",
             gr.Dropdown,
+            lambda: {"choices": IMG_CHANNELS},
+            section=section),
+    )
+
             lambda: {"choices": IMG_CHANNELS},
             section=section),
     )
@@ -129,17 +160,28 @@ def on_ui_settings():
         key="wcc_downscale_preview",
         info=shared.OptionInfo(
             getattr(shared.opts, "wcc_downscale_preview", False),
+            getattr(shared.opts, "wcc_downscale_preview", False),
             "Downscale preview images",
             gr.Checkbox,
+            lambda: {"interactive": True, "show_label": True},
+            section=section),
             lambda: {"interactive": True, "show_label": True},
             section=section),
     )
 
 
+
+def btn_count_wildcards(filter_extact_mode):
 def btn_count_wildcards(filter_extact_mode):
     msg = f"{log_suffix}: No wildcards selected"
     sel_only = filter_extact_mode == FILTER_EXTRACT_OPTS[1]
+    sel_only = filter_extact_mode == FILTER_EXTRACT_OPTS[1]
     selected_wildcards_list = filter_interr_fn(sel_only)
+    if selected_wildcards_list:
+        msg = f"{log_suffix}: {len(selected_wildcards_list)} wildcards selected"
+
+    return (gr.update(value=msg))
+
     if selected_wildcards_list:
         msg = f"{log_suffix}: {len(selected_wildcards_list)} wildcards selected"
 
@@ -149,6 +191,12 @@ def btn_count_wildcards(filter_extact_mode):
 def toggle_search_replace_box(insertion_type):
     return (gr.update(visible=insertion_type == "SREACH & REPLACE", value="@GG"))
 
+def toggle_search_replace_box(insertion_type):
+    return (gr.update(visible=insertion_type == "SREACH & REPLACE", value="@GG"))
+
+
+def toggle_wildpath_box(toggle_status):
+    return (gr.update(visible=toggle_status))
 
 def toggle_wildpath_box(toggle_status):
     return (gr.update(visible=toggle_status))
@@ -157,15 +205,29 @@ def toggle_wildpath_box(toggle_status):
 def selection_sequance(use_wild_path, selected_wildcard, selected_wild_path):
     selected_wildcard_final_list = []
     if (selected_wild_path and not selected_wild_path == "") or (not use_wild_path and selected_wildcard):
+    if (selected_wild_path and not selected_wild_path == "") or (not use_wild_path and selected_wildcard):
         wild_paths = list(wildcards_dict.keys())
         selected_wild_path = selected_wild_path.replace("*", "").replace(WILD_STR, "").strip()
+        selected_wild_path = selected_wild_path.replace("*", "").replace(WILD_STR, "").strip()
 
+        selected_wildcard_final_list = [item for item in wild_paths if (item.lower().startswith(selected_wild_path.lower()) and use_wild_path) or (item in selected_wildcard if selected_wildcard else False)]
         selected_wildcard_final_list = [item for item in wild_paths if (item.lower().startswith(selected_wild_path.lower()) and use_wild_path) or (item in selected_wildcard if selected_wildcard else False)]
     return selected_wildcard_final_list
 
 
+
 def change_scrip_mode(mode):
     print(f">> Set generation script mode to: {mode}")
+    if mode not in SCRIPT_MODES_OPTS or mode == SCRIPT_MODES_OPTS[0]:
+        return (
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False)
+        )
     if mode not in SCRIPT_MODES_OPTS or mode == SCRIPT_MODES_OPTS[0]:
         return (
             gr.update(visible=False),
@@ -186,7 +248,25 @@ def change_scrip_mode(mode):
             gr.update(visible=True),
             gr.update()
         )
+        return (
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update()
+        )
     if mode == SCRIPT_MODES_OPTS[2]:
+        return (
+            gr.update(visible=True),
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update()
+        )
         return (
             gr.update(visible=True),
             gr.update(visible=False),
@@ -210,7 +290,22 @@ def change_scrip_mode(mode):
 
 def act_lunch_gen(filter_extact_mode):
     sel_only = filter_extact_mode == FILTER_EXTRACT_OPTS[1]
+        return (
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=True),
+            gr.update()
+        )
+
+
+def act_lunch_gen(filter_extact_mode):
+    sel_only = filter_extact_mode == FILTER_EXTRACT_OPTS[1]
     selected_wildcards_list = filter_interr_fn(sel_only)
+    safe_info(f"Processing Tumbnails for {len(selected_wildcards_list)} Cards")
+
     safe_info(f"Processing Tumbnails for {len(selected_wildcards_list)} Cards")
 
 
@@ -236,7 +331,28 @@ class Script(scripts.Script):
                 interactive=True,
                 info="generate the preview for the selected channel",
                 multiselect=True)
+                script_mode = gr.Radio(label="Script Mode", choices=SCRIPT_MODES_OPTS, value=SCRIPT_MODES_OPTS[0], elem_classes=["wcc_flat_radio", "wcc_radio_header"])
             with gr.Row():
+                filter_extact_mode = gr.Radio(visible=False, label="Included Wildcards", choices=FILTER_EXTRACT_OPTS, value=FILTER_EXTRACT_OPTS[1], elem_classes=["wcc_flat_radio", "wcc_radio_header"])
+                prompting_mode = gr.Radio(visible=False, label="Prompt usage mode", choices=PROMPTER_OPTS, value=PROMPTER_OPTS[1], elem_classes=["wcc_flat_radio", "wcc_radio_header"])
+
+            preview_suffix = gr.Dropdown(
+                visible=False,
+                choices=IMG_CHANNELS,
+                label="preview channel",
+                value=getattr(shared.opts, "wcc_preview_channel", "default"),
+                interactive=True,
+                info="generate the preview for the selected channel",
+                multiselect=True)
+            with gr.Row():
+                insertion_type = gr.Dropdown(
+                    choices=["AFTER", "BEFORE", "SREACH & REPLACE"],
+                    label="wildcard insertion method",
+                    value="AFTER",
+                    interactive=True,
+                    visible=False,
+                    info="how and where to insert the wildcard within the prompt")
+                replace_str_opt = gr.Textbox(label="S/R text", interactive=True, info="searches and replace the provided text by the wildcard in the prompt", visible=False, value="@GG")
                 insertion_type = gr.Dropdown(
                     choices=["AFTER", "BEFORE", "SREACH & REPLACE"],
                     label="wildcard insertion method",
@@ -248,10 +364,16 @@ class Script(scripts.Script):
 
             with gr.Column():
 
+
                 with gr.Row():
                     task_override = gr.Checkbox(visible=False, label="override exisiting previews", value=False)
 
+                    task_override = gr.Checkbox(visible=False, label="override exisiting previews", value=False)
+
                 with gr.Row():
+                    btn_run_gen = gr.Button(visible=False, value="Generate", variant="primary", elem_classes="wcc_compos_btn_left")
+                    act_count = gr.Button(value="count selected cards", elem_classes="wcc_compos_btn_mid")
+                    act_msg = gr.Markdown(value=log_suffix + ": _", elem_id="wld_gal_notif_area")
                     btn_run_gen = gr.Button(visible=False, value="Generate", variant="primary", elem_classes="wcc_compos_btn_left")
                     act_count = gr.Button(value="count selected cards", elem_classes="wcc_compos_btn_mid")
                     act_msg = gr.Markdown(value=log_suffix + ": _", elem_id="wld_gal_notif_area")
@@ -272,9 +394,17 @@ class Script(scripts.Script):
 
         return [filter_extact_mode, task_override, replace_str_opt, preview_suffix, insertion_type, script_mode, prompting_mode]
 
+        script_mode.change(change_scrip_mode, inputs=script_mode, outputs=[filter_extact_mode, prompting_mode, task_override, preview_suffix, insertion_type, btn_run_gen, replace_str_opt])
+        insertion_type.change(toggle_search_replace_box, inputs=insertion_type, outputs=replace_str_opt)
+        act_count.click(btn_count_wildcards, inputs=[filter_extact_mode], outputs=act_msg)
+        btn_run_gen.click(act_lunch_gen, inputs=[filter_extact_mode]).then(None, **js_kwarg(gen_click_js))
+
+        return [filter_extact_mode, task_override, replace_str_opt, preview_suffix, insertion_type, script_mode, prompting_mode]
+
     def show(self, is_img2img):
         return not is_img2img
 
+    def run(self, p, filter_extact_mode, task_override, replace_str_opt, preview_suffix, insertion_type, script_mode, prompting_mode):
     def run(self, p, filter_extact_mode, task_override, replace_str_opt, preview_suffix, insertion_type, script_mode, prompting_mode):
         global wildcards_dict
 
@@ -282,7 +412,16 @@ class Script(scripts.Script):
         preview_suffix = preview_suffix if preview_suffix else [IMG_CHANNELS[0]]
 
         if script_mode == SCRIPT_MODES_OPTS[0]:
+        preview_suffix = preview_suffix if preview_suffix else [IMG_CHANNELS[0]]
+
+        if script_mode == SCRIPT_MODES_OPTS[0]:
             processed_req = normal_process(p)
+
+        elif script_mode == SCRIPT_MODES_OPTS[1] and (selected_wild_paths):
+            processed_req = txt2img_prompting_process(p, selected_wild_paths, replace_str_opt, insertion_type, prompting_mode)
+
+        elif script_mode == SCRIPT_MODES_OPTS[2] and (selected_wild_paths):
+            processed_req, update_stack = txt2img_preview_process(p, selected_wild_paths, replace_str_opt, task_override, preview_suffix, insertion_type, view_mode=False)
 
         elif script_mode == SCRIPT_MODES_OPTS[1] and (selected_wild_paths):
             processed_req = txt2img_prompting_process(p, selected_wild_paths, replace_str_opt, insertion_type, prompting_mode)
@@ -295,37 +434,57 @@ class Script(scripts.Script):
                     entry.update_thumbnails(channel_dict)
 
         elif script_mode == SCRIPT_MODES_OPTS[3] and (selected_wild_paths):
+        elif script_mode == SCRIPT_MODES_OPTS[3] and (selected_wild_paths):
             new_selected_wild_paths = []
             for wildpath in selected_wild_paths:
                 counter = 1
                 potential_sequence = f"{strip_trailing_number(wildpath)}{counter}"
                 while potential_sequence in wildcards_dict:
+                while potential_sequence in wildcards_dict:
                     new_selected_wild_paths.append(potential_sequence)
                     print(f"**  {potential_sequence}")
+                    counter += 1
                     counter += 1
                     potential_sequence = f"{strip_trailing_number(wildpath)}{counter}"
 
             processed_req, update_stack = txt2img_preview_process(p, new_selected_wild_paths, replace_str_opt, task_override, preview_suffix, insertion_type, view_mode=True)
 
+
+            processed_req, update_stack = txt2img_preview_process(p, new_selected_wild_paths, replace_str_opt, task_override, preview_suffix, insertion_type, view_mode=True)
+
         else:
             safe_error("Lacking selection or parameters", duration=3)
+            safe_error("Lacking selection or parameters", duration=3)
             print("___Preview generation halted___")
+            processed_req = txt2img_prompting_process(p, selected_wild_paths)
+
             processed_req = txt2img_prompting_process(p, selected_wild_paths)
 
         return processed_req
 
 
 def on_app_started(_, app: FastAPI):
+
+def on_app_started(_, app: FastAPI):
     app.add_api_route("/wcc_cards/img", fetch_img, methods=["GET"])
 
 
+def build_gallery_dict(perload_thumbnails: bool = False) -> tuple[dict[str, WildcardEntry], dict[str, list[str]]]:
 def build_gallery_dict(perload_thumbnails: bool = False) -> tuple[dict[str, WildcardEntry], dict[str, list[str]]]:
     if not os.path.exists(CARDS_FOLDER):
         print(f'\n[{EXT_NAME}]> "cards" folder not found. Reinitializing...\n')
         os.makedirs(CARDS_FOLDER, exist_ok=True)
 
     wildcards_dict = collect_Wildcards(collect_prompts=True)
+    wildcards_dict = collect_Wildcards(collect_prompts=True)
     tags_dict = load_tags()
+    blacklist = load_blacklist()
+
+    # Filter out blacklisted wildcards
+    if blacklist:
+        for wpath in list(wildcards_dict.keys()):
+            if wpath in blacklist:
+                del wildcards_dict[wpath]
     blacklist = load_blacklist()
 
     # Filter out blacklisted wildcards
@@ -363,6 +522,8 @@ def pre_ui_init():
     wildcards_dict, tags_dict = build_gallery_dict()
     wcc_extra_net_page = WildcardsCards()
     filter_interr_fn = init_filter_module(wildcards_dict, tags_dict, rebuild_fn=wcc_extra_net_page.refresh)
+    wcc_extra_net_page = WildcardsCards()
+    filter_interr_fn = init_filter_module(wildcards_dict, tags_dict, rebuild_fn=wcc_extra_net_page.refresh)
     register_page(wcc_extra_net_page)
  
 
@@ -371,3 +532,4 @@ script_callbacks.on_app_started(on_app_started)
 script_callbacks.on_before_ui(pre_ui_init)
 script_callbacks.on_ui_settings(on_ui_settings)
 script_callbacks.on_ui_tabs(on_ui_tabs)
+
