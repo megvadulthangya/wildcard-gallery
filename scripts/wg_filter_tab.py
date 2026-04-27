@@ -605,7 +605,7 @@ def act_select_entry(index):
         gr.update(visible=True),
         *update_card_mode(html_view, is_creation=False, is_selection=bool(selected_entries), is_edit=False),
         gr.update(value=aux_details, visible=(selected_entries and (len(selected_entries) < 2))),
-        gr.update(value=selected_wildcard_str)
+        gr.update(value="")
     )
 
 
