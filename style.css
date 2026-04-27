@@ -206,6 +206,95 @@
 }
 
 
+/* ---------- Duplicated styles for .wg-card ---------- */
+#txt2img_wildcards_cards_html .wg-card .button-row, #img2img_wildcards_cards_html .wg-card .button-row {
+    top: 0;
+}
+
+#txt2img_wildcards_cards_html .wg-card {
+    background-image: linear-gradient(90deg, var(--button-secondary-background-fill), var(--button-primary-background-fill));
+    font-size: 100%;
+    height: 18em;
+    width: 14em;
+    margin: 0.5em;
+    border-radius: 0.8rem;
+}
+
+#txt2img_wildcards_cards_html .wg-card .actions .additional{
+    display: none;
+}
+
+#txt2img_wildcards_cards_html .wg-card .actions {
+    position: absolute;
+    width: 100%;
+}
+
+#txt2img_wildcards_cards_html .wg-card .actions .name {
+    display: inline-flex;
+    position: relative;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    left: 16%;
+    font-size: 1em;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+#img2img_wildcards_cards_html .wg-card:has(:not(img)), #txt2img_wildcards_cards_html .wg-card:has(:not(img)){
+    background-image: url('./resources/card-no-preview.jpg');
+    background-size: contain;
+}
+
+#img2img_wildcards_cards_html .wg-card:has(img):hover, #txt2img_wildcards_cards_html .wg-card:hover{
+    background-image: url('./resources/card-sel.gif');
+    background-size: contain;
+}
+
+#txt2img_wildcards_cards_html .wg-card:hover > .preview, #img2img_wildcards_cards_html .wg-card:hover > .preview{
+    mix-blend-mode: screen;
+}
+
+#img2img_wildcards_cards_html .wg-card {
+    background-image: linear-gradient(90deg, var(--button-secondary-background-fill), var(--button-primary-background-fill));
+    font-size: 100%;
+    height: 18em;
+    width: 14em;
+    margin: 0.5em;
+}
+
+#img2img_wildcards_cards_html .wg-card .actions .additional{
+    display: none;
+}
+
+#img2img_wildcards_cards_html .wg-card .actions {
+    position: absolute;
+    width: 100%;
+}
+
+#txt2img_wildcards_cards_html .wg-card .actions .name {
+    height: initial !important;
+    margin-top: 1em;
+}
+
+#img2img_wildcards_cards_html .wg-card .actions .name {
+    height: initial !important;
+    margin-top: 1em;
+}
+
+#img2img_wildcards_cards_html .wg-card .actions .name {
+    display: inline-flex;
+    position: relative;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    left: 16%;
+    font-size: 1em;
+    overflow: hidden;
+    white-space: nowrap;
+}
+/* ---------- End .wg-card ---------- */
+
 #wcc_fil_input_div .form{
   padding-bottom: 0.6em;
 }
@@ -259,6 +348,16 @@
   min-width: fit-content;
   padding: 0.3em;
   max-width: 4em;
+}
+
+#wcc_visibility_actions,
+#wcc_blacklist_actions {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: var(--background-fill-primary);
+    padding: 0.4em 0;
+    border-bottom: 1px solid var(--block-border-color);
 }
 
 .wcc_status_btn:hover {
@@ -353,6 +452,25 @@
     background-size: cover !important  ;
     justify-content: space-between;
 }
+
+.wcc_gal_item.wcc_text_card{
+    background: linear-gradient(135deg, var(--button-secondary-background-fill), var(--button-primary-background-fill));
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.wcc_text_card_name{
+    font-size: clamp(14px, 1.4vw, 22px);
+    font-weight: bold;
+    color: var(--body-text-color);
+    padding: 0.5em;
+    word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 60%;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.3);
+}
 .wcc_tag_stack{
     display: flex;
     flex-wrap: wrap;
@@ -368,7 +486,25 @@
     padding-top: 2px;
     border-radius: 5em;
     background: #535b8a7a;
+    align-content: center;
     }
+.wcc_gal_tag .wcc_fav_heart{
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.125em;
+    color: #e0245e;
+    /* The heart lives inside .wcc_gal_item so the generic `.wcc_gal_item svg`
+       rule below would make it invisible, absolutely positioned at the top
+       right corner, and override the fill via !important. Neutralise those. */
+    fill: #e0245e !important;
+    visibility: visible;
+    position: static;
+    top: auto;
+    left: auto;
+    background: none;
+    margin-left: 0;
+    border-radius: 0;
+}
 .wcc_gal_item svg{
   fill: var(--button-secondary-text-color)!important;
   background: var(--button-primary-background-fill-hover);

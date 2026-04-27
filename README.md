@@ -1,11 +1,10 @@
- 
+# Wildcard Gallery V2.1.0
 
-# Wildcard Gallery V2
-
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/megvadulthangya/wildcard-gallery)
 
 ## What is this
 
-This Automatic1111 extension primary adds a new extra networks gallery for wildcards along with preview thumbnails and other features for an enhanced wildcards management and user experience.
+This extension is optimized for **Forge** (Gradio 4.40+ compatibility) and adds a new extra networks gallery for wildcards along with preview thumbnails and other features for an enhanced wildcards management and user experience.
 
 ## Installation
 - `git clone` this repo to the `extensions` folder in your Web UI installation, or paste the its link to the `extensions/Install form URL` tab in WebUi
@@ -15,14 +14,22 @@ This Automatic1111 extension primary adds a new extra networks gallery for wildc
 
 ## requirements
 - This extension extends on the wildcard functionality so it goes without saying that you already have the **[sd-dynamic-prompts](https://github.com/adieyal/sd-dynamic-prompts)** extension in your WebUi ecosystem if not then you'll need to install the .
-- This extension was made with Gradio 3.x in mind things may break with higher versions
+- This extension has been updated for **Gradio 4.40+** compatibility, making it fully functional with modern WebUIs like **Forge**.
 
 ## Settings
-- to limit indexation to specific wildcard branches you can add the parent activation path wildcard to the Whitelist (default behavior)
- - **important!!** you wont see any wildcard in the gallery unless you add its **file name** to whitelist in the **webui settings** and restart it
-- to exclude wildcards from indexation you can add their activation path to the Blacklist
+- The extension automatically scans, indexes, and loads *all* wildcards found in your directory into the gallery recursively. There is no whitelist/blacklist to maintain — use the in-gallery **Visibility Manager** (see below) to hide cards you don't want to see.
 - you can toggle the Downscale preview images to resize and compress generated previews to take far less size on the disk
 <img src="screenshots/ml0.jpg"/>
+
+## Visibility Manager
+
+The Wildcards Filter tab includes a **Visibility Mode** toggle that lets you curate which wildcards show up in both the Filter tab gallery and the txt2img/img2img *Wildcards* Extra Networks tab — without deleting any files.
+
+- Toggle **Visibility Mode** on to reveal the hide/unhide action row under the gallery.
+- Select one or more cards and click **Hide Selected** to hide them, or **Unhide Selected** to bring them back.
+- Use **Show Hidden Only** / **Show All (excl. hidden)** to switch between browsing the hidden set and the normal (visible) set.
+- Clicking a card while Visibility Mode is on will *not* insert it into the prompt — so you can safely click-to-select for bulk hide/unhide operations.
+- Hidden wildcard paths are persisted in `metadata/hidden_wildcards.json` and survive WebUI restarts. The file is a plain JSON list; removing an entry re-enables the wildcard.
 
 ## Wildcard Filter Tab
 
@@ -42,19 +49,15 @@ The **Wildcard Filter Tab** is the most notable addition in Version 2 of the *Wi
 
 The layout is intentionally simple and includes:
 
-- **Filtering Options**  
-  Handles the creation and execution of filtering queries.
+- **Filtering Options** Handles the creation and execution of filtering queries.
   <img src="screenshots/ml1.jpg"/>
 
-- **Cards Viewer**  
-
-  Displays filter results as cards, paginated (typically 25 per page).  
+- **Cards Viewer** Displays filter results as cards, paginated (typically 25 per page).  
   - Allows card selection for future operations  
   - Enables card creation  
   - Includes a **Viewer Options** subsection for tag visibility, preview cycling, and card grouping
 
-- **Operations Sections**  
-  Contains actions for selected cards or the entire wildcard dictionary.
+- **Operations Sections** Contains actions for selected cards or the entire wildcard dictionary.
 
 ---
 
@@ -117,19 +120,16 @@ This is where you'll interact with filtered results in the form of cards.
 
 Additional utilities can be accessed from the collapsed section above the card viewer:
 
-- **Card Stacking Level**  
-  Groups cards based on their parent rank.  
+- **Card Stacking Level** Groups cards based on their parent rank.  
   - E.g., setting stacking to 3 will group `parentA/parentB/parentC/Card1` and `.../Card2` under a shared `parentC/*` stack.
   - Selecting a stack selects all cards within it.
   - Changing stacking level does *not* reset card selections.
   <img src="screenshots/ml4.jpg"/> 
   <img src="screenshots/ml5.jpg"/> 
 
-- **Tag Masking**  
-  Allows hiding or decluttering tags on cards based on their tag group settings.
+- **Tag Masking** Allows hiding or decluttering tags on cards based on their tag group settings.
 
-- **Selected Preview Channel**  
-  Lets you cycle through different preview images per card based on the chosen channel.
+- **Selected Preview Channel** Lets you cycle through different preview images per card based on the chosen channel.
 
 ---
 
@@ -191,8 +191,7 @@ This is a **txt2img** script used in conjunction with the **Wildcard Filter Tab*
   - Make sure to switch to the channel where you want the resulting image(s) to be saved.  
   - Enabling **Override Existing Previews** will force regeneration and replacement of previews for all selected wildcards, even if they already have a preview in the chosen channel.
 
-  - **Simplified Usage Steps:** 
-    1. Select the desired cards in the **Wildcard Filter Tab**.
+  - **Simplified Usage Steps:** 1. Select the desired cards in the **Wildcard Filter Tab**.
     <img src="screenshots/st1.jpg"/>
     
     2. Add the base positive and negative prompts for image generation.
@@ -209,5 +208,3 @@ This is a **txt2img** script used in conjunction with the **Wildcard Filter Tab*
        - (Sometimes you may need to deselect and reselect a card for the info to refresh.)
     
     <img src="screenshots/st4.jpg"/>
-
-
