@@ -2,8 +2,7 @@
 cards/
 STRAY_RESOURCES/
 USER_OUTPUT/
-metadata/tags_config.json
-metadata/tags_data.json
+metadata/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
