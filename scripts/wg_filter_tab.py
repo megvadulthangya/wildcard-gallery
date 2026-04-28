@@ -827,7 +827,7 @@ def act_copy_path(wpath: str):
 def act_reuse_last():
     processed_path = ""
     if last_edit:
-        print(f"[{EXT_NAME}] loading info from last edited wildcard")
+        print(f"[{EXT_NAME}]> loading info from last edited wildcard")
         processed_path = last_edit.path.split("/")
         if len(processed_path) > 1:
             processed_path.pop()
@@ -908,7 +908,7 @@ def act_nullify_imgs():
     for entry in selected_entries:
         imgs_pile += entry.nullify_channel_img(channels=[current_img_channel])
 
-    print(f"[{EXT_NAME}] nullified {len(imgs_pile)} previews from channel {current_img_channel}")
+    print(f"[{EXT_NAME}]> nullified {len(imgs_pile)} previews from channel {current_img_channel}")
 
     samples_list = update_gallery_view()
     html_view = update_stack_view(selected_entries) if selected_entries else ""
@@ -922,7 +922,7 @@ def act_misc_rmv_imgs():
     for entry in selected_entries:
         imgs_pile += entry.delete_channel_img(channels=[current_img_channel])
 
-    print(f"[{EXT_NAME}] deleted {len(imgs_pile)} previews from channel {current_img_channel}")
+    print(f"[{EXT_NAME}]> deleted {len(imgs_pile)} previews from channel {current_img_channel}")
 
     samples_list = update_gallery_view()
     html_view = update_stack_view(selected_entries) if selected_entries else ""
@@ -990,7 +990,7 @@ def act_reform_tags():
 
         if redundant_entries:
             tags_dict[tag] = muta_list
-            print(f"[{EXT_NAME}] cleaned ({len(redundant_entries)}) redundant entries from [{tag}]")
+            print(f"[{EXT_NAME}]> cleaned ({len(redundant_entries)}) redundant entries from [{tag}]")
 
     save_tags(tags_dict)
 
@@ -999,7 +999,7 @@ def act_misc_collect_imgs():
     imgs_pile = []
     for entry in selected_entries:
         imgs_pile += entry.collect_channel_img()
-    print(f"[{EXT_NAME}] collected {len(imgs_pile)} previews from channel {[current_img_channel]}")
+    print(f"[{EXT_NAME}]> collected {len(imgs_pile)} previews from channel {[current_img_channel]}")
 
 
 def act_upload_wildpack(selected_file_path):
@@ -1272,24 +1272,6 @@ def on_ui_tabs():
             }
         '''
 
-        js_insert_prompt = '''
-            (wildcard_str) => {
-                var prompt_textarea = gradioApp().querySelector('#txt2img_prompt');
-                if (prompt_textarea) {
-                    var current_prompt = prompt_textarea.value;
-                    var new_prompt = current_prompt + " " + wildcard_str;
-                    prompt_textarea.value = new_prompt;
-                    prompt_textarea.dispatchEvent(new Event('input', { bubbles: true }));
-                    console.log("Inserted: " + wildcard_str);
-                } else {
-                    console.log("Prompt textarea not found");
-                }
-                var notifContainer = document.getElementById("wcc_notif_msg");
-                if (notifContainer) notifContainer.classList.add("wcc_anim");
-                setTimeout(() => {  if (notifContainer)  notifContainer.classList.remove("wcc_anim");    }, 2100);
-            }
-        '''
-
         gr_stack_page_selector = [btn_pg_jump, tx_pg_jump, btn_pg_prev, btn_pg_next]
         gr_stack_filter_pannel = [sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input, btn_run_filter]
         gr_stack_card_editor = [disp_card_stack, btn_copy_txt, tx_edit_quick_path, btn_use_last, tx_edit_wpath, tx_edit_prompt, sel_tag_add, tx_sel_tag_add, btn_create_card, btn_tag_add, btn_tag_rmv, acc_aux_details, btn_edit_card, btn_fav_card]
@@ -1297,7 +1279,7 @@ def on_ui_tabs():
         sel_filter_prop.change(act_filter_mod_change, inputs=[sel_filter_prop], outputs=gr_stack_filter_pannel)
         btn_run_filter.click(act_run_filter, inputs=[sel_filter_prop, sel_filter_logic, opt_extend_sel, tx_pos_input, tx_neg_input, sel_pos_input, sel_neg_input],
                              outputs=[coll_flt_res, *gr_stack_page_selector, disp_results, btn_create_mode, *gr_stack_card_editor])
-        coll_flt_res.select(act_select_entry, inputs=[coll_flt_res], outputs=[coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector]).then(None, inputs=[wcards_selector], **js_kwarg(js_insert_prompt))
+        coll_flt_res.select(act_select_entry, inputs=[coll_flt_res], outputs=[coll_flt_res, opt_stacks_lvl, btn_create_mode, *gr_stack_card_editor, disp_aux_details, wcards_selector])
 
         btn_pg_jump.click(act_paginate, inputs=[tx_pg_jump], outputs=[coll_flt_res, *gr_stack_page_selector])
         btn_pg_next.click(act_paginate_next, outputs=[coll_flt_res, *gr_stack_page_selector])

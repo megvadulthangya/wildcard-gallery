@@ -2,6 +2,7 @@ from modules import scripts, shared
 from modules.paths import extensions_dir
 
 import os, shutil, yaml, json, errno, urllib.parse, time, zipfile, io, requests, re, html as html_mod
+from tqdm import tqdm
 from typing import Union, IO
 from pathlib import Path
 from fastapi.exceptions import HTTPException
@@ -45,11 +46,11 @@ STRAY_RES_folder = os.path.join(COLL_PREV_folder, "STRAY_RESOURCES")
 IMG_CHANNELS = ["default", "preview1", "preview2", "preview3", "channel4"]
 VALID_IMG_EXT = [".jpeg", ".jpg", ".png", ".gif"]
 ICON_LIB = {
-    "copy": os.path.join(RES_FOLDER, "icons", "copy-svgrepo-com.svg"),
-    "delete": os.path.join(RES_FOLDER, "icons", "trash-bin-2-svgrepo-com.svg"),
-    "edit": os.path.join(RES_FOLDER, "icons", "pen-2-svgrepo-com.svg"),
-    "fav": os.path.join(RES_FOLDER, "icons", "heart-svgrepo-com.svg"),
-    "unfav": os.path.join(RES_FOLDER, "icons", "heart-broken-svgrepo-com.svg")
+    "copy": os.path.join(RES_FOLDER, "icons", "copy.svg"),
+    "delete": os.path.join(RES_FOLDER, "icons", "trash-bin.svg"),
+    "edit": os.path.join(RES_FOLDER, "icons", "pen.svg"),
+    "fav": os.path.join(RES_FOLDER, "icons", "heart.svg"),
+    "unfav": os.path.join(RES_FOLDER, "icons", "heart-broken.svg")
 }
 
 SHARED_ASSESTS = {
@@ -183,13 +184,11 @@ class WildcardEntry:
         generated_block = f'<div class="wcc_gal_label">{html_mod.escape(display_name)}</div>'
 
         img_file = self.thumbnails.get(img_channel, "")
-        has_real_preview = img_file and img_file != SHARED_ASSESTS.get("card_fallback", "")
-        if has_real_preview:
-            image_block = f'style="background-image: url({link_img(img_file, self.last_update)});"'
-        else:
-            image_block = ''
-            text_card_label = f'<div class="wcc_text_card_name">{html_mod.escape(display_name)}</div>'
-            main_html_block = main_html_block.replace("wcc_gal_item", "wcc_gal_item wcc_text_card")
+        if not img_file:
+            img_file = SHARED_ASSESTS.get("card_fallback", "")
+
+        image_block = f'style="background-image: url({link_img(img_file, self.last_update)});"'
+ 
 
         if stack_count > 1:
             main_html_block = main_html_block.replace("wcc_gal_item", "wcc_gal_item wcc_item_stack ")
@@ -202,8 +201,7 @@ class WildcardEntry:
         if "All" not in hidden_tag_groups:
             generated_block = self.html_tag_stack(config_dict, hide_masked="Masked Tags" in hidden_tag_groups, masked_groups=hidden_tag_groups) + generated_block
 
-        if not has_real_preview:
-            generated_block = text_card_label + generated_block
+ 
 
         return main_html_block.replace("###", generated_block).replace("##img##", image_block)
 
@@ -219,24 +217,45 @@ class TagConfig:
 
     @staticmethod
     def load_from_json(filename: str = "tags_config.json") -> list['TagConfig']:
-        file_path = os.path.join(META_FOLDER, filename)
+
+        file_path = Path(META_FOLDER) / filename
+
+        if not file_path.exists():
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            default_config = TagConfig(
+                config_name="fav",
+                bg_color="#ff780057",
+                tx_color="#fff01b",
+                members=["fav"]
+            )
+            
+                # Save it as a list containing one dictionary
+            default_data = [asdict(default_config)]
+            
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(default_data, f, indent=4)
+                print(f"Created default config at: {file_path}")
+            except Exception as e:
+                print(f"Failed to create default file: {e}")
+                return []
+
+        # 3. Standard Loading Logic
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
+            
             if not isinstance(data, list):
                 raise ValueError("JSON content must be an array of tag configurations.")
-            tag_configs = [TagConfig(**item) for item in data]
-            return tag_configs
-        except FileNotFoundError:
-            print(f"File not found: {file_path}")
-        except PermissionError:
-            print(f"Permission denied: {file_path}")
+            
+            return [TagConfig(**item) for item in data]
+
         except json.JSONDecodeError as e:
             print(f"Error parsing JSON in {file_path}: {e}")
-        except ValueError as e:
-            print(f"Value error: {e}")
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
+        
         return []
 
 
@@ -340,19 +359,19 @@ def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool =
     collected_wildcards = {}
     txt_count = 0
     yaml_count = 0
-
-    print(f"[{EXT_NAME}] Scanning for wildcards in directories: {wildcards_dirs}")
+    proc_duration = time.time()
+ 
 
     if not wildcards_dirs or not any(os.path.isdir(d) for d in wildcards_dirs if d):
-        print(f"[{EXT_NAME}] No valid wildcard directories found.")
+        print(f"[{EXT_NAME}]> No valid wildcard directories found.")
         return collected_wildcards
 
     for wildcards_dir in wildcards_dirs:
         if not wildcards_dir or not os.path.isdir(wildcards_dir):
-            print(f"[{EXT_NAME}] Skipping invalid directory: {wildcards_dir}")
+            print(f"[{EXT_NAME}]> Skipping invalid directory: {wildcards_dir}")
             continue
 
-        print(f"[{EXT_NAME}] Scanning directory: {wildcards_dir}")
+        print(f"[{EXT_NAME}]> Scanning directory: {wildcards_dir}")
 
         for root, dirs, files in os.walk(wildcards_dir):
             for file in files:
@@ -387,7 +406,7 @@ def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool =
                                 file_origin_path=full_path
                             )
                     except Exception as e:
-                        print(f"[{EXT_NAME}] Error processing file {full_path}: {e}")
+                        print(f"[{EXT_NAME}]> Error processing file {full_path}: {e}")
 
                 elif file.lower().endswith(".yaml"):
                     yaml_count += 1
@@ -404,9 +423,10 @@ def collect_Wildcards(wildcards_dirs=[WILDCARDS_FOLDER], collect_prompts: bool =
                                 file_origin_path=full_path
                             )
                     except Exception as e:
-                        print(f"[{EXT_NAME}] Error processing YAML file {full_path}: {e}")
+                        print(f"[{EXT_NAME}]> Error processing YAML file {full_path}: {e}")
 
-    print(f"[{EXT_NAME}] Processed {txt_count} .txt files and {yaml_count} .yaml files, total wildcards: {len(collected_wildcards)}")
+    proc_duration -= time.time() 
+    print(f"[{EXT_NAME}]> Processed {txt_count} .txt files and {yaml_count} .yaml files, in {int(proc_duration)}s")
     return collected_wildcards
 
 
@@ -668,13 +688,13 @@ def collect_stray_previews(wild_paths, cards_dir=CARDS_FOLDER):
                             break
 
                     if not exist_check:
-                        print(f"[{EXT_NAME}] collecting [{os.path.join(root, file)}]")
+                        print(f"[{EXT_NAME}]> collecting [{os.path.join(root, file)}]")
                         new_dir = os.path.join(STRAY_RES_folder, os.path.relpath(os.path.join(root, file), cards_dir).replace(os.path.sep, "+"))
                         try:
                             os.replace(os.path.join(root, file), new_dir)
                             stay_previews_list.append(new_dir)
                         except OSError:
-                            print(f"[{EXT_NAME}] failed to collect [{os.path.join(root, file)}]")
+                            print(f"[{EXT_NAME}]> failed to collect [{os.path.join(root, file)}]")
     else:
         print(f'______ No wildcards were loaded in______')
 
@@ -715,19 +735,29 @@ def save_tags(tags_dict: dict[str: list[str]], parent_dir=META_FOLDER, target_fi
     return False
 
 
-def load_tags(target_file="tags_data.json") -> dict[str: list[str]]:
+def load_tags(target_file="tags_data.json") -> dict[str, list[str]]:
     result = {}
     file_path = os.path.join(META_FOLDER, target_file)
+    
+
+    if not os.path.exists(META_FOLDER):
+        os.makedirs(META_FOLDER)
+
+
     if not os.path.exists(file_path):
-        with open(file_path, "w") as file:
-            json.dump(result, file)
-        print(f"tags file created {file_path}")
+        try:
+            with open(file_path, "w") as file:
+                json.dump(result, file, indent=4)
+            print(f"Tags file created: {file_path}")
+        except Exception as e:
+            print(f"Error creating file: {e}")
     else:
         try:
             with open(file_path, "r") as file:
                 result = json.load(file)
-        except Exception:
-            print(f"unable to read tags data from {file_path}")
+        except (json.JSONDecodeError, IOError):
+            print(f"Unable to read tags data from {file_path}.")
+            
     return result
 
 
@@ -753,7 +783,7 @@ def save_hidden_wildcards(hidden_set: set) -> bool:
             json.dump(sorted(list(hidden_set)), f, indent=2)
         return True
     except Exception as e:
-        print(f"[{EXT_NAME}] Failed to save hidden wildcards: {e}")
+        print(f"[{EXT_NAME}]> Failed to save hidden wildcards: {e}")
         return False
 
 
@@ -775,7 +805,7 @@ def save_blacklist(blacklist_set: set) -> bool:
             json.dump(sorted(list(blacklist_set)), f, indent=2)
         return True
     except Exception as e:
-        print(f"[{EXT_NAME}] Failed to save blacklist: {e}")
+        print(f"[{EXT_NAME}]> Failed to save blacklist: {e}")
         return False
 
 
@@ -828,7 +858,7 @@ def unpack_wildcard_pack(pack_path) -> str:
                 target_path = os.path.join(CARDS_FOLDER, rel)
                 target_path = os.path.realpath(target_path)
                 if not target_path.startswith(os.path.realpath(CARDS_FOLDER) + os.sep):
-                    print(f"[{EXT_NAME}] Skipping unsafe zip entry: {member}")
+                    print(f"[{EXT_NAME}]> Skipping unsafe zip entry: {member}")
                     continue
                 os.makedirs(os.path.dirname(target_path), exist_ok=True)
                 with open(target_path, 'wb') as f:
@@ -839,7 +869,7 @@ def unpack_wildcard_pack(pack_path) -> str:
                 target_file = os.path.join(traget_dir, os.path.basename(member))
                 target_file = os.path.realpath(target_file)
                 if not target_file.startswith(os.path.realpath(traget_dir) + os.sep):
-                    print(f"[{EXT_NAME}] Skipping unsafe zip entry: {member}")
+                    print(f"[{EXT_NAME}]> Skipping unsafe zip entry: {member}")
                     continue
                 os.makedirs(os.path.dirname(target_file), exist_ok=True)
                 with open(target_file, 'wb') as f:
