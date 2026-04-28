@@ -17,8 +17,17 @@ An enhanced wildcard management extension for Automatic1111, Forge, and Forge Ne
 - This extension has been updated for **Gradio 4.40+** compatibility, making it fully functional with modern WebUIs like **Forge**.
 
 ## Settings
-- The extension automatically scans, indexes, and loads *all* wildcards found in your directory into the gallery recursively. There is no whitelist/blacklist to maintain — use the in-gallery **Visibility Manager** (see below) to hide cards you don't want to see.
-- you can toggle the Downscale preview images to resize and compress generated previews to take far less size on the disk
+The extension automatically scans and indexes all wildcards from the sd-dynamic-prompts/wildcards directory recursively.
+
+You can manage your collection via the Wildcards Filter, which allows you to list all items and curate a personalized blacklist. Clicking the Blacklist button reveals advanced management tools, including:
+
+Select all: Quickly select all visible wildcards.
+
+Add to / Remove from blacklist: Easily toggle the visibility of selected cards.
+
+Show Blacklist: View and manage your currently hidden items.
+
+To optimize performance, you can toggle Downscale preview images to resize and compress thumbnails, significantly reducing disk space usage.
 <img src="screenshots/ml0.jpg"/>
 
 
